@@ -1,0 +1,67 @@
+package alloy.compat121support.sodium;
+
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.GameRenderer;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+import org.joml.Matrix4fc;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+
+/**
+ * Iris's "begin translucents" step (MixinLevelRenderer#iris$beginTranslucents) for the 1.21.4 and 1.21.8 builds, by
+ * reflection so the compat compiles without Iris. Iris hooks the main pass lambda of LevelRenderer.renderLevel; Forge 54 and
+ * 58 keep the lambda's name but reorder its arguments, so the fitter stripped the hook. Without it Iris never runs the
+ * shader pack's deferred passes and the screen shows only sky and fog.
+ */
+public final class IrisPasses121 {
+    private static final Logger LOG = LogManager.getLogger("Alloy/Iris");
+    private static final MethodHandle PIPELINE_MANAGER, PIPELINE_NULLABLE, BEGIN_HAND, BEGIN_TRANSLUCENTS, RENDER_SOLID;
+    private static final Object HAND_RENDERER;
+    private static boolean logged;
+
+    static {
+        MethodHandles.Lookup l = MethodHandles.publicLookup();
+        MethodHandle pm = null, pn = null, bh = null, bt = null, rs = null;
+        Object hr = null;
+        try {
+            ClassLoader cl = IrisPasses121.class.getClassLoader();
+            Class<?> iris = Class.forName("net.irisshaders.iris.Iris", false, cl);
+            Class<?> manager = Class.forName("net.irisshaders.iris.pipeline.PipelineManager", false, cl);
+            Class<?> pipeline = Class.forName("net.irisshaders.iris.pipeline.WorldRenderingPipeline", false, cl);
+            Class<?> hand = Class.forName("net.irisshaders.iris.pathways.HandRenderer", false, cl);
+            pm = l.findStatic(iris, "getPipelineManager", MethodType.methodType(manager));
+            pn = l.findVirtual(manager, "getPipelineNullable", MethodType.methodType(pipeline));
+            bh = l.findVirtual(pipeline, "beginHand", MethodType.methodType(void.class));
+            bt = l.findVirtual(pipeline, "beginTranslucents", MethodType.methodType(void.class));
+            hr = hand.getField("INSTANCE").get(null);
+            rs = l.findVirtual(hand, "renderSolid", MethodType.methodType(void.class, Matrix4fc.class, float.class, Camera.class, GameRenderer.class, pipeline));
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            LOG.warn("Iris pipeline methods not found; Iris's deferred passes are not started on Forge's main pass: {}", e.toString());
+        }
+        PIPELINE_MANAGER = pm; PIPELINE_NULLABLE = pn; BEGIN_HAND = bh; BEGIN_TRANSLUCENTS = bt; RENDER_SOLID = rs; HAND_RENDERER = hr;
+    }
+
+    private IrisPasses121() { }
+
+    /** Same three calls as Iris's iris$beginTranslucents: solid hand, then the deferred passes before translucent terrain. */
+    public static void beginTranslucents(Matrix4fc modelMatrix, float partial, Camera camera) {
+        if (BEGIN_TRANSLUCENTS == null) return;
+        try {
+            Object p = PIPELINE_NULLABLE.invoke(PIPELINE_MANAGER.invoke());
+            if (p == null) return;
+            BEGIN_HAND.invoke(p);
+            RENDER_SOLID.invoke(HAND_RENDERER, modelMatrix, partial, camera, Minecraft.getInstance().gameRenderer, p);
+            BEGIN_TRANSLUCENTS.invoke(p);
+            if (!logged) {
+                logged = true;
+                LOG.info("Iris deferred passes started from Forge's main pass ({})", p.getClass().getSimpleName());
+            }
+        } catch (Throwable t) {
+            SodiumForge121.warnOnce("iris-translucents", "Iris beginTranslucents failed", t);
+        }
+    }
+}

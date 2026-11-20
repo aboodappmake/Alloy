@@ -1,0 +1,92 @@
+package alloy.compat120.net;
+
+import java.lang.reflect.Field;
+import java.util.Collection;
+import java.util.Map;
+import net.minecraft.network.Connection;
+import net.minecraft.server.network.ServerLoginPacketListenerImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Debug only (-Dalloy.netdebug=true): once a second per login, logs the login state, Forge's handshake progress (sent
+ * position, list size, replies still awaited) and Fabric's open login queries. Off by default; then it only reads one
+ * boolean per tick.
+ */
+@Mixin(value = ServerLoginPacketListenerImpl.class, remap = false)
+public abstract class ServerLoginProbe120 {
+    @Unique private static final boolean ALLOY$ON = Boolean.getBoolean("alloy.netdebug");
+    @Unique private static final Logger ALLOY$LOG = LoggerFactory.getLogger("Alloy");
+    @Unique private int alloy$ticks;
+
+    @Shadow @Final Connection connection;
+
+    @Inject(method = "tick", at = @At("HEAD"), require = 0)
+    private void alloy$probe(CallbackInfo ci) {
+        if (!ALLOY$ON || alloy$ticks++ % 20 != 0) return;
+        StringBuilder b = new StringBuilder("Alloy netdebug: login tick ").append(alloy$ticks - 1)
+                .append(" remote=").append(connection.getRemoteAddress());
+        try {
+            io.netty.channel.Channel ch = connection.channel();
+            b.append(" chan open=").append(ch.isOpen()).append(" active=").append(ch.isActive())
+                    .append(" writable=").append(ch.isWritable()).append(" autoRead=").append(ch.config().isAutoRead())
+                    .append(" protocol=").append(ch.attr(Connection.ATTRIBUTE_PROTOCOL).get())
+                    .append(" sent=").append(alloy$field(connection, "sentPackets"))
+                    .append(" queued=").append(((java.util.Collection<?>) alloy$field(connection, "queue")).size())
+                    .append(" loopTasks=").append(ch.eventLoop() instanceof io.netty.util.concurrent.SingleThreadEventExecutor e ? e.pendingTasks() : -1)
+                    .append(" unflushed=").append(ch.unsafe().outboundBuffer() == null ? -1 : ch.unsafe().outboundBuffer().size())
+                    .append(" pipeline=").append(ch.pipeline().names());
+        } catch (Throwable t) {
+            b.append(" chan=? ").append(t);
+        }
+        try {
+            b.append(" state=").append(alloy$field(this, "state"));
+        } catch (Throwable t) {
+            b.append(" state=? ").append(t);
+        }
+        try {
+            Field kf = Class.forName("net.minecraftforge.network.NetworkConstants").getDeclaredField("FML_HANDSHAKE_HANDLER");
+            kf.setAccessible(true);
+            Object key = kf.get(null);
+            Object h = connection.channel().attr((io.netty.util.AttributeKey<?>) key).get();
+            if (h == null) b.append(" forge=no handler");
+            else b.append(" forge pos=").append(alloy$field(h, "packetPosition"))
+                    .append("/").append(((Collection<?>) alloy$field(h, "messageList")).size())
+                    .append(" awaiting=").append(alloy$field(h, "sentMessages"))
+                    .append(" started=").append(alloy$field(h, "negotiationStarted"))
+                    .append(" futures=").append(((Collection<?>) alloy$field(h, "pendingFutures")).size());
+        } catch (Throwable t) {
+            b.append(" forge=? ").append(t);
+        }
+        try {
+            Object addon = this.getClass().getMethod("getAddon").invoke(this);
+            b.append(" fabric channels=").append(((Map<?, ?>) alloy$field(addon, "channels")).keySet())
+                    .append(" waits=").append(((Collection<?>) alloy$field(addon, "waits")).size())
+                    .append(" first=").append(alloy$field(addon, "firstQueryTick"));
+        } catch (Throwable t) {
+            b.append(" fabric=? ").append(t);
+        }
+        ALLOY$LOG.info(b.toString());
+    }
+
+    @Unique
+    private static Object alloy$field(Object o, String name) throws ReflectiveOperationException {
+        for (Class<?> c = o.getClass(); c != null; c = c.getSuperclass()) {
+            try {
+                Field f = c.getDeclaredField(name);
+                f.setAccessible(true);
+                return f.get(o);
+            } catch (NoSuchFieldException ignored) {
+                // superclass
+            }
+        }
+        throw new NoSuchFieldException(name);
+    }
+}

@@ -1,0 +1,79 @@
+package alloy.compat120.net49;
+
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.common.ClientboundCustomPayloadPacket;
+import net.minecraft.network.protocol.common.ServerboundCustomPayloadPacket;
+import net.minecraft.network.protocol.common.custom.CustomPacketPayload;
+import net.minecraft.network.protocol.common.custom.DiscardedPayload;
+import net.minecraft.resources.ResourceLocation;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * Forge 49 / Fabric API 0.97.3, over a real network connection (not the integrated server's memory connection).
+ *
+ * Fabric's CustomPayloadS2C/C2SPacketMixin#readPayload turns every custom payload that is not a vanilla one into Fabric's
+ * own payload object. Forge 49 reads its channels (forge:handshake, forge:login, mod channels) only from vanilla's
+ * DiscardedPayload (ICustomPacket.getInternalData), so the Forge configuration task never got its packet: the joining
+ * client logged "Unknown custom packet payload: forge:handshake" and waited forever. For ids that Forge has a channel for
+ * (NetworkRegistry.findTarget) this runs first (priority 500) and returns the DiscardedPayload Forge's own code would make.
+ * minecraft:* stays with Fabric (it owns minecraft:register / unregister, see CompatMixins$FabricOwnsRegisterChannel).
+ *
+ * The helpers are copied into each mixin (@Unique): this outer class is in the mixin package and can never be loaded.
+ */
+public final class ForgePayloadsStayForge49 {
+    private ForgePayloadsStayForge49() {}
+
+    @Mixin(value = ClientboundCustomPayloadPacket.class, priority = 500, remap = false)
+    public static class ToClient {
+        @Inject(method = "readPayload", at = @At("HEAD"), cancellable = true)
+        private static void alloy$forgeChannel(ResourceLocation id, FriendlyByteBuf buf, CallbackInfoReturnable<CustomPacketPayload> cir) {
+            if (alloy$isForge(id)) cir.setReturnValue(alloy$discarded(id, buf, 1048576));
+        }
+
+        @Unique
+        private static boolean alloy$isForge(ResourceLocation id) {
+            if (id == null || "minecraft".equals(id.getNamespace())) return false;
+            try {
+                return net.minecraftforge.network.NetworkRegistry.findTarget(id) != null;
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+
+        @Unique
+        private static DiscardedPayload alloy$discarded(ResourceLocation id, FriendlyByteBuf buf, int max) {
+            int n = buf.readableBytes();
+            if (n < 0 || n > max) throw new IllegalArgumentException("Payload may not be larger than " + max + " bytes");
+            return new DiscardedPayload(id, new FriendlyByteBuf(buf.readBytes(n)));
+        }
+    }
+
+    @Mixin(value = ServerboundCustomPayloadPacket.class, priority = 500, remap = false)
+    public static class ToServer {
+        @Inject(method = "readPayload", at = @At("HEAD"), cancellable = true)
+        private static void alloy$forgeChannel(ResourceLocation id, FriendlyByteBuf buf, CallbackInfoReturnable<CustomPacketPayload> cir) {
+            if (alloy$isForge(id)) cir.setReturnValue(alloy$discarded(id, buf, 32767));
+        }
+
+        @Unique
+        private static boolean alloy$isForge(ResourceLocation id) {
+            if (id == null || "minecraft".equals(id.getNamespace())) return false;
+            try {
+                return net.minecraftforge.network.NetworkRegistry.findTarget(id) != null;
+            } catch (Throwable t) {
+                return false;
+            }
+        }
+
+        @Unique
+        private static DiscardedPayload alloy$discarded(ResourceLocation id, FriendlyByteBuf buf, int max) {
+            int n = buf.readableBytes();
+            if (n < 0 || n > max) throw new IllegalArgumentException("Payload may not be larger than " + max + " bytes");
+            return new DiscardedPayload(id, new FriendlyByteBuf(buf.readBytes(n)));
+        }
+    }
+}

@@ -1,0 +1,71 @@
+package alloy.compat120.net;
+
+import java.util.function.Function;
+import java.util.function.Supplier;
+import io.netty.channel.ChannelPipeline;
+import net.minecraft.network.Connection;
+import net.minecraftforge.network.ConnectionType;
+import net.minecraftforge.network.HandshakeHandler;
+import net.minecraftforge.network.NetworkDirection;
+import net.minecraftforge.network.NetworkEvent;
+import net.minecraftforge.network.filters.NetworkFilters;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 (Forge 47): three small guards from Connector 1.20.1 (mixin/network). They only change what happens in a failure
+ * case. All use require = 0: if a target changes, the guard is off and Forge behaves as it does without Alloy.
+ */
+public final class ForgeNetRobustness120 {
+    private ForgeNetRobustness120() {}
+
+    /** A connection whose FML_NETVERSION attribute was never set (opened outside Forge's handshake path): VANILLA, not an NPE. */
+    @Mixin(value = ConnectionType.class, remap = false)
+    public static abstract class NullVersionIsVanilla {
+        @Inject(method = "forVersionFlag(Ljava/lang/String;)Lnet/minecraftforge/network/ConnectionType;", at = @At("HEAD"), cancellable = true, require = 0)
+        private static void alloy$nullIsVanilla(String vers, CallbackInfoReturnable<ConnectionType> cir) {
+            if (vers == null) cir.setReturnValue(ConnectionType.VANILLA);
+        }
+    }
+
+    /** A login packet that arrives before Forge attached its handshake handler: attach it now instead of an NPE. */
+    @Mixin(value = HandshakeHandler.class, remap = false)
+    public static abstract class LateHandshake {
+        @Shadow
+        private static HandshakeHandler getHandshake(Supplier<NetworkEvent.Context> contextSupplier) {
+            throw new AssertionError();
+        }
+
+        @Shadow
+        static void registerHandshake(Connection manager, NetworkDirection direction) {
+            throw new AssertionError();
+        }
+
+        @Redirect(method = "lambda$biConsumerFor$1", require = 0,
+                at = @At(value = "INVOKE", target = "Lnet/minecraftforge/network/HandshakeHandler;getHandshake(Ljava/util/function/Supplier;)Lnet/minecraftforge/network/HandshakeHandler;"))
+        private static HandshakeHandler alloy$lateHandshake(Supplier<NetworkEvent.Context> c) {
+            HandshakeHandler h = getHandshake(c);
+            if (h == null && c.get() != null && c.get().getNetworkManager() != null) {
+                registerHandshake(c.get().getNetworkManager(), c.get().getDirection());
+                h = getHandshake(c);
+            }
+            return h;
+        }
+    }
+
+    /** Forge's packet filters injected twice into one pipeline: skip the second addBefore (duplicate handler name). */
+    @Mixin(value = NetworkFilters.class, remap = false)
+    public static abstract class NoDuplicateFilter {
+        @Inject(method = "lambda$injectIfNecessary$1", require = 0, cancellable = true,
+                at = @At(value = "INVOKE", target = "Lio/netty/channel/ChannelPipeline;addBefore(Ljava/lang/String;Ljava/lang/String;Lio/netty/channel/ChannelHandler;)Lio/netty/channel/ChannelPipeline;"))
+        @SuppressWarnings("rawtypes")
+        private static void alloy$noDuplicate(Connection manager, ChannelPipeline pipeline, String key, Function filterFactory, CallbackInfo ci) {
+            if (pipeline.get(key) != null) ci.cancel();
+        }
+    }
+}

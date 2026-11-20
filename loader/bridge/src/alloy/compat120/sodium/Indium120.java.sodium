@@ -1,0 +1,14 @@
+package alloy.compat120support.sodium;
+
+import net.fabricmc.fabric.api.renderer.v1.model.FabricBakedModel;
+import net.minecraft.client.resources.model.BakedModel;
+
+/** Fabric Rendering API checks, in their own class so nothing loads FRAPI classes when Indium is absent. */
+final class Indium120 {
+    private Indium120() { }
+
+    /** Fabric API injects FabricBakedModel into every BakedModel; Forge models stay vanilla adapters (default true). */
+    static boolean isVanillaAdapter(BakedModel model) {
+        return ((FabricBakedModel) model).isVanillaAdapter();
+    }
+}

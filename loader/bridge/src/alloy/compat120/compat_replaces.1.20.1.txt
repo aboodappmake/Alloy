@@ -1,0 +1,61 @@
+# For Fabric API 0.92.12+1.20.1 on Forge 47.4.29 (used by launch120.py mods; see docs/fabric-1.20.1.md).
+# Same format as compat_replaces.txt: Fabric API mixins that an alloy.compat120 mixin fully re-implements.
+# Whole mixins:
+fabric-lifecycle-events-v1.mixins.json:server.WorldChunkMixin
+fabric-lifecycle-events-v1.client.mixins.json:WorldChunkMixin
+fabric-item-api-v1.mixins.json:RecipeMixin
+fabric-item-api-v1.mixins.json:BrewingStandBlockEntityMixin
+fabric-item-api-v1.mixins.json:AbstractFurnaceBlockEntityMixin
+fabric-registry-sync-v0.mixins.json:SaveLoadingMixin
+# per-handler: strip only this injector, keep the rest of the mixin
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#breakBlock
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#onBlockBroken
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onIsSleepingInBed
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onGetSleepingDirection
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyBedForOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#setOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyWakeUpPosition
+fabric-entity-events-v1.mixins.json:PlayerEntityMixin#redirectDaySleepCheck
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#redirectDaySleepCheck
+fabric-item-api-v1.mixins.json:ItemStackMixin#hookGetAttributeModifiers
+fabric-item-api-v1.mixins.json:ItemStackMixin#hookIsSuitableFor
+# HudRenderCallback: ForgeGui never calls Gui.render; gui.HudCallbackCompat120 fires it from RenderGuiEvent.Post
+fabric-rendering-v1.mixins.json:InGameHudMixin#render
+# accessors whose field Forge 47 changed: keep the accessor mixin (Fabric code casts to it, and a class in a mixin package can
+# never be loaded as a plain interface) and point the @Accessor at a field a compat120 mixin adds (mixin@name+desc=newField).
+# Also: mixin@name+desc (or mixin@*) drops the @Accessor, for a method the target already has.
+fabric-loot-api-v2.mixins.json:LootTableAccessor@fabric_getPools()[Lnet/minecraft/world/level/storage/loot/LootPool;=alloy$pools
+fabric-particles-v1.client.mixins.json:ParticleManagerAccessor@getFactories()Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;=alloy$providersById
+# Iris 1.7.6: Forge 47's ShaderInstance(ResourceProvider, String, VertexFormat) only calls the new ResourceLocation
+# constructor, so Iris's two hooks have nothing to hit. sodium/mixin/IrisShaderInstanceMixin120 does both on Forge's
+# constructor (iris_ attribute names and the geometry and tessellation shaders of Iris's ExtendedShader).
+mixins.iris.json:MixinShaderInstance#iris$redirectBindAttributeLocation
+mixins.iris.json:MixinShaderInstance#iris$setupGeometryShader
+# Cardinal Components 5.2.x block module: tick() locals differ on Forge 47; block.FallingBlockCcaCompat120 does the same without locals
+mixins.cardinal_components_block.json:common.MixinFallingBlockEntity#readComponentData
+# Iris 1.7.6 particle phases: Forge 47 renders particles through its own 6-argument ParticleEngine.render (with a Frustum) and
+# walks particles.keySet(). sodium/mixin/IrisParticlesMixin120 and IrisParticleEngineMixin120 do the same phases there.
+mixins.iris.fantastic.json:MixinLevelRenderer#iris$renderTranslucentAfterDeferred
+mixins.iris.fantastic.json:MixinLevelRenderer#iris$renderOpaqueParticles
+mixins.iris.fantastic.json:MixinParticleEngine#iris$changeParticleShader
+mixins.iris.fantastic.json:MixinParticleEngine#iris$selectParticlesToRender
+# Iris 1.7.6 armor id: the locals capture fails (Forge adds an Item local); sodium/mixin/IrisArmorMixin120 takes the ArmorItem
+# with MixinExtras @Local instead.
+mixins.iris.json:entity_render_context.MixinHumanoidArmorLayer#changeId
+# Iris 1.7.6 GL debug option: Forge 47's Window constructor has no glfwCreateWindow (ImmediateWindowHandler creates the
+# window); sodium/mixin/IrisWindowMixin120 sets the same hints just before that call.
+mixins.iris.json:MixinWindow#iris$enableDebugContext
+# @Shadow fields of anonymous classes that Forge's recompile named after other locals: mixin@field:old=new renames the
+# shadow. Fabric API's UseEntityCallback / AttackEntityCallback on the server (found by offline_check.py; without it the
+# whole mixin is skipped and the callbacks never fire when a player uses or hits an entity).
+fabric-events-interaction-v0.mixins.json:ServerPlayNetworkHandlerMixin@field:val$target=val$entity
+# Continuity 3.0: falling blocks; Forge calls the 12-argument tesselateBlock (ModelData, RenderType), so the vanilla call
+# is not there. model.ContinuityFallingBlockCompat120 turns CTM and emissive textures off around Forge's call instead.
+continuity.mixins.json:FallingBlockEntityRendererMixin
+# Creative tabs: Forge is the only pager. Fabric's creative screen filters and arrows are stripped and gui.CreativeTabPagesCompat120
+# sets every tab's Fabric page to Forge's page index (1.20.1/1.20.2: nothing else fills it, the screen crashed "Item group has no page")
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#init
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#setSelectedTab
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#renderTabTooltipIfHovered
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#isClickInTab
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#renderTabIcon

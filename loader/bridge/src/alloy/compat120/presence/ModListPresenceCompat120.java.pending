@@ -1,0 +1,22 @@
+package alloy.compat120.presence;
+
+import alloy.presence.Presence;
+import net.minecraftforge.fml.ModList;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * Forge 47 and 49: ModList.isLoaded is an instance method (ModList.get().isLoaded(id)); Forge 64's static one is hooked
+ * by compat/viewers/ModListViewers. When FML says no, alloy.presence answers: data conditions (forge:mod_loaded,
+ * Lithostitched's mod_loaded predicate) see Fabric mods, code checks see Fabric mods only when the caller could use them
+ * (class-less mods, both-sides mods, Fabric recipe viewers). The mod lists are not changed.
+ */
+@Mixin(value = ModList.class, remap = false)
+public abstract class ModListPresenceCompat120 {
+    @Inject(method = "isLoaded", at = @At("RETURN"), cancellable = true, remap = false)
+    private void alloy$presence(String modId, CallbackInfoReturnable<Boolean> cir) {
+        if (!cir.getReturnValueZ() && Presence.forgeIsLoaded(modId)) cir.setReturnValue(true);
+    }
+}

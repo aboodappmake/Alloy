@@ -1,0 +1,44 @@
+# Fabric API mixins that an alloy.compat120 mixin fully re-implements on 1.21.8.
+# Forge's patch renames the captured locals of the interact handler (ServerGamePacketListenerImpl$1): val$target -> val$entity
+fabric-events-interaction-v0.mixins.json:ServerPlayNetworkHandlerInteractEntityHandlerMixin@field:val$target=val$entity
+# Forge's patch keeps an SRG name for the captured tag map of MappedRegistry$TagSet$2: val$tags -> val$p_364506_
+fabric-tag-api-v1.mixins.json:SimpleRegistryTagLookup2Accessor@fabric_getTagMap()Ljava/util/Map;=val$p_364506_
+fabric-tag-api-v1.mixins.json:SimpleRegistryTagLookup2Accessor@fabric_setTagMap(Ljava/util/Map;)V=val$p_364506_
+# Forge already has ServerCommonPacketListenerImpl.getConnection(), the same getter: the accessor may replace it
+fabric-networking-api-v1.mixins.json:accessor.ServerCommonNetworkHandlerAccessor@relax
+# --- port121x: Fabric halves of the compat120 sources now built on 1.21.8 (moved here from the strip list)
+# particle factories: keep the accessor, point getFactories at particle.ParticleEngineCompat120's raw-id view of Forge's map
+fabric-particles-v1.client.mixins.json:ParticleManagerAccessor@getFactories()Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;=alloy$providersById
+# PlayerBlockBreakEvents: interaction.ServerPlayerGameModeCompat120
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#breakBlock
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#onBlockBroken
+# block entity load and unload: itemchunk.LevelChunkLifecycleCompat120 (client and server)
+fabric-lifecycle-events-v1.client.mixins.json:WorldChunkMixin
+fabric-lifecycle-events-v1.mixins.json:server.WorldChunkMixin
+# recipe remainders: item.ItemCompat120$ItemRemainder (src54) feeds Forge's IForgeItem.getCraftingRemainder(ItemStack)
+fabric-item-api-v1.mixins.json:CraftingRecipeMixin
+fabric-item-api-v1.mixins.json:BrewingStandBlockEntityMixin
+fabric-item-api-v1.mixins.json:AbstractFurnaceBlockEntityMixin
+# EntitySleepEvents: entityevents.SleepCompat120 (src54)
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onIsSleepingInBed
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onGetSleepingDirection
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyBedForOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#setOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyWakeUpPosition
+fabric-entity-events-v1.mixins.json:PlayerEntityMixin#redirectDaySleepCheck
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#redirectDaySleepCheck
+# Fabric dynamic registries: registry.WorldLoaderCompat120 (src54) hands Forge's list plus Fabric's
+fabric-registry-sync-v0.mixins.json:SaveLoadingMixin
+# client52.FabricClientHooks52 (src56): screen keys, mouse and drag, render, continue breaking, enchanting
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onRenderScreen
+fabric-screen-api-v1.mixins.json:KeyboardMixin#invokeKeyPressedEvents
+fabric-screen-api-v1.mixins.json:KeyboardMixin#invokeKeyReleasedEvents
+fabric-screen-api-v1.mixins.json:MouseMixin#invokeMouseClickedEvents
+fabric-screen-api-v1.mixins.json:MouseMixin#invokeMouseDragEvents
+fabric-screen-api-v1.mixins.json:MouseMixin#invokeMousePressedEvents
+fabric-item-api-v1.mixins.json:EnchantmentHelperMixin#useCustomEnchantingChecks
+fabric-item-api-v1.client.mixins.json:ClientPlayerInteractionManagerMixin#fabricItemContinueBlockBreakingInject
+# Fabric Sodium 0.7.3: its core LevelRendererMixin @Overwrites vanilla renderBlockEntities(...F)V, which Forge 58 turned into
+# renderBlockEntities(...F, Frustum)Z. Only that overwrite goes; alloy-sodium121.jar's BlockEntitiesMixin121
+# (compat121/sodium/mc1.21.8) does it on Forge's method
+sodium-common.mixins.json:core.render.world.LevelRendererMixin#renderBlockEntities

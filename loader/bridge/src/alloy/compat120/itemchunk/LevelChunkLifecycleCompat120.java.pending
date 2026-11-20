@@ -1,0 +1,139 @@
+package alloy.compat120.itemchunk;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import java.util.Map;
+import net.fabricmc.fabric.api.client.event.lifecycle.v1.ClientBlockEntityEvents;
+import net.fabricmc.fabric.api.event.lifecycle.v1.ServerBlockEntityEvents;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.chunk.LevelChunk;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x) replacement for fabric-lifecycle-events-v1 server.WorldChunkMixin and
+ * client.WorldChunkMixin (disable both as a whole). Same code as the 26.1 ServerLevelChunkLifecycleMixin /
+ * ClientLevelChunkLifecycleMixin; Forge 47 has the same change as Forge 64:
+ *
+ * <p>Fabric's getBlockEntity redirect uses a slice that starts at {@code createBlockEntity} and expects
+ * {@code blockEntities.remove(pos)} after it (vanilla: "created entity is removed -> drop it"). Forge 47 moved the
+ * "isRemoved -> blockEntities.remove(pos)" branch to the front, right after {@code blockEntities.get(pos)}, so the slice holds
+ * no Map.remove and the redirect fails. The static check rates it only RISKY (it does not read slices); checked by hand on
+ * forge-1.20.1-47.4.29 (Mojang names): getBlockEntity(BlockPos, EntityCreationType) = get, isRemoved, blockEntities.remove,
+ * pendingBlockEntities.remove, promotePendingBlockEntity, createBlockEntity, addAndRegisterBlockEntity. setBlockEntity has one
+ * Map.put and one BlockEntity.setRemoved, removeBlockEntity(BlockPos) one setRemoved, getLevel() returns Level. Fabric's other
+ * three injectors capture locals in methods Forge changed; WrapOperation needs no locals.
+ *
+ * <p>{@link Server} goes in the "server" list (dedicated server), {@link Client} in the "client" list (it fires the server
+ * events for the integrated server's chunks too). Never load both on one side, or server events fire twice.
+ */
+public final class LevelChunkLifecycleCompat120 {
+    private LevelChunkLifecycleCompat120() {}
+
+    @Mixin(value = LevelChunk.class, remap = false)
+    public abstract static class Server {
+        @Shadow(remap = false)
+        public abstract Level getLevel();
+
+        @WrapOperation(method = "setBlockEntity(Lnet/minecraft/world/level/block/entity/BlockEntity;)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"))
+        private Object alloy$fabricLoad(Map<BlockPos, BlockEntity> map, Object pos, Object be, Operation<Object> original) {
+            Object previous = original.call(map, pos, be);
+            if (be instanceof BlockEntity blockEntity && blockEntity != previous && this.getLevel() instanceof ServerLevel serverLevel) {
+                ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.invoker().onLoad(blockEntity, serverLevel);
+            }
+            return previous;
+        }
+
+        @WrapOperation(method = "setBlockEntity(Lnet/minecraft/world/level/block/entity/BlockEntity;)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/level/block/entity/BlockEntity;setRemoved()V"))
+        private void alloy$fabricUnloadReplaced(BlockEntity previous, Operation<Void> original) {
+            original.call(previous);
+            if (this.getLevel() instanceof ServerLevel serverLevel) {
+                ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.invoker().onUnload(previous, serverLevel);
+            }
+        }
+
+        @WrapOperation(method = "removeBlockEntity(Lnet/minecraft/core/BlockPos;)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/level/block/entity/BlockEntity;setRemoved()V"))
+        private void alloy$fabricUnloadRemoved(BlockEntity removeThis, Operation<Void> original) {
+            if (this.getLevel() instanceof ServerLevel serverLevel) {
+                ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.invoker().onUnload(removeThis, serverLevel);
+            }
+            original.call(removeThis);
+        }
+
+        /** First Map.remove in Forge's getBlockEntity is blockEntities.remove(pos) (the second is pendingBlockEntities). */
+        @WrapOperation(method = "getBlockEntity(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/chunk/LevelChunk$EntityCreationType;)Lnet/minecraft/world/level/block/entity/BlockEntity;",
+                remap = false, at = @At(value = "INVOKE", remap = false, ordinal = 0, target = "Ljava/util/Map;remove(Ljava/lang/Object;)Ljava/lang/Object;"))
+        private Object alloy$fabricUnloadEvicted(Map<BlockPos, BlockEntity> map, Object pos, Operation<Object> original) {
+            Object removed = original.call(map, pos);
+            if (removed instanceof BlockEntity blockEntity && this.getLevel() instanceof ServerLevel serverLevel) {
+                ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.invoker().onUnload(blockEntity, serverLevel);
+            }
+            return removed;
+        }
+    }
+
+    @Mixin(value = LevelChunk.class, remap = false)
+    public abstract static class Client {
+        @Shadow(remap = false)
+        public abstract Level getLevel();
+
+        @Unique
+        private void alloy$fireLoad(BlockEntity be) {
+            Level level = this.getLevel();
+            if (level instanceof ServerLevel serverLevel) {
+                ServerBlockEntityEvents.BLOCK_ENTITY_LOAD.invoker().onLoad(be, serverLevel);
+            } else if (level instanceof ClientLevel clientLevel) {
+                ClientBlockEntityEvents.BLOCK_ENTITY_LOAD.invoker().onLoad(be, clientLevel);
+            }
+        }
+
+        @Unique
+        private void alloy$fireUnload(BlockEntity be) {
+            Level level = this.getLevel();
+            if (level instanceof ServerLevel serverLevel) {
+                ServerBlockEntityEvents.BLOCK_ENTITY_UNLOAD.invoker().onUnload(be, serverLevel);
+            } else if (level instanceof ClientLevel clientLevel) {
+                ClientBlockEntityEvents.BLOCK_ENTITY_UNLOAD.invoker().onUnload(be, clientLevel);
+            }
+        }
+
+        @WrapOperation(method = "setBlockEntity(Lnet/minecraft/world/level/block/entity/BlockEntity;)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;"))
+        private Object alloy$fabricLoad(Map<BlockPos, BlockEntity> map, Object pos, Object be, Operation<Object> original) {
+            Object previous = original.call(map, pos, be);
+            if (be instanceof BlockEntity blockEntity && blockEntity != previous) this.alloy$fireLoad(blockEntity);
+            return previous;
+        }
+
+        @WrapOperation(method = "setBlockEntity(Lnet/minecraft/world/level/block/entity/BlockEntity;)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/level/block/entity/BlockEntity;setRemoved()V"))
+        private void alloy$fabricUnloadReplaced(BlockEntity previous, Operation<Void> original) {
+            original.call(previous);
+            this.alloy$fireUnload(previous);
+        }
+
+        @WrapOperation(method = "removeBlockEntity(Lnet/minecraft/core/BlockPos;)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/level/block/entity/BlockEntity;setRemoved()V"))
+        private void alloy$fabricUnloadRemoved(BlockEntity removeThis, Operation<Void> original) {
+            this.alloy$fireUnload(removeThis);
+            original.call(removeThis);
+        }
+
+        @WrapOperation(method = "getBlockEntity(Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/chunk/LevelChunk$EntityCreationType;)Lnet/minecraft/world/level/block/entity/BlockEntity;",
+                remap = false, at = @At(value = "INVOKE", remap = false, ordinal = 0, target = "Ljava/util/Map;remove(Ljava/lang/Object;)Ljava/lang/Object;"))
+        private Object alloy$fabricUnloadEvicted(Map<BlockPos, BlockEntity> map, Object pos, Operation<Object> original) {
+            Object removed = original.call(map, pos);
+            if (removed instanceof BlockEntity blockEntity) this.alloy$fireUnload(blockEntity);
+            return removed;
+        }
+    }
+}

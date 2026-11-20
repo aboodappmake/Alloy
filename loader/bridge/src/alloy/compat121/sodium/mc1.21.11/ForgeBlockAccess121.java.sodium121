@@ -1,0 +1,49 @@
+package alloy.compat121support.sodium;
+
+import net.caffeinemc.mods.sodium.client.render.model.AmbientOcclusionMode;
+import net.caffeinemc.mods.sodium.client.util.DirectionUtil;
+import net.caffeinemc.mods.sodium.fabric.block.FabricBlockAccess;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.client.renderer.block.model.BlockModelPart;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
+
+/**
+ * Minecraft 1.21.11: R6 + R7 and the other block questions with Forge 61's answers: position-aware light emission, Forge's face hiding
+ * (hidesNeighborFace / supportsExternalFaceHiding), Forge's fluid overlay, AO per render type and block entity glow.
+ * Built on the Fabric jar's answers, so normal shading and fluid occlusion stay as Fabric Sodium does them (Forge 52 has
+ * no shouldHideAdjacentFluidFace), and Fabric's transparent fluid overlay blocks still count.
+ */
+public final class ForgeBlockAccess121 extends FabricBlockAccess {
+    @Override
+    public int getLightEmission(BlockState state, BlockAndTintGetter level, BlockPos pos) {
+        return state.getLightEmission(level, pos);
+    }
+
+    @Override
+    public boolean shouldSkipRender(BlockGetter level, BlockState selfState, BlockState otherState, BlockPos selfPos, BlockPos otherPos, Direction facing) {
+        return otherState.hidesNeighborFace(level, otherPos, selfState, DirectionUtil.getOpposite(facing)) && selfState.supportsExternalFaceHiding();
+    }
+
+    @Override
+    public boolean shouldShowFluidOverlay(BlockState block, BlockAndTintGetter level, BlockPos pos, FluidState fluidState) {
+        return block.shouldDisplayFluidOverlay(level, pos, fluidState) || super.shouldShowFluidOverlay(block, level, pos, fluidState);
+    }
+
+    @Override
+    public AmbientOcclusionMode usesAmbientOcclusion(BlockModelPart part, BlockState state, ChunkSectionLayer layer, BlockAndTintGetter level, BlockPos pos) {
+        // Forge 58's ModelBlockRenderer: AO when the part asks for it (the light emission check is Sodium's own)
+        return part.useAmbientOcclusion() ? AmbientOcclusionMode.DEFAULT : AmbientOcclusionMode.DISABLED;
+    }
+
+    @Override
+    public boolean shouldBlockEntityGlow(BlockEntity blockEntity, LocalPlayer player) {
+        return blockEntity.hasCustomOutlineRendering();   // Forge 61 dropped the player argument
+    }
+}

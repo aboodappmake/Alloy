@@ -1,0 +1,43 @@
+package alloy.compat121support.sodium;
+
+import net.caffeinemc.mods.sodium.client.model.quad.BakedQuadView;
+import net.caffeinemc.mods.sodium.client.model.quad.properties.ModelQuadFacing;
+import net.caffeinemc.mods.sodium.client.model.quad.properties.ModelQuadFlags;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.core.Direction;
+
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.VarHandle;
+
+/**
+ * R0: Sodium's per-quad data for quads made with Forge's 6-argument BakedQuad constructor. Kept apart from SodiumForge121
+ * because it runs during model baking (many threads, early), and must not pull in render types or other classes.
+ */
+public final class QuadFix121 {
+    private static final VarHandle NORMAL, NORMAL_FACE, FLAGS;
+    static {
+        VarHandle n, nf, f;
+        try {
+            var l = MethodHandles.privateLookupIn(BakedQuad.class, MethodHandles.lookup());
+            n = l.findVarHandle(BakedQuad.class, "normal", int.class);
+            nf = l.findVarHandle(BakedQuad.class, "normalFace", ModelQuadFacing.class);
+            f = l.findVarHandle(BakedQuad.class, "flags", int.class);
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            org.apache.logging.log4j.LogManager.getLogger("Alloy/Sodium").warn("Sodium's BakedQuad fields (normal, normalFace, flags) not found; Forge quads get no Sodium normal: {}", e.toString());
+            n = nf = f = null;
+        }
+        NORMAL = n; NORMAL_FACE = nf; FLAGS = f;
+    }
+
+    private QuadFix121() { }
+
+    /** Same three lines as Sodium 0.6's Fabric BakedQuadMixin.init (which only covers the vanilla 5-argument constructor). */
+    public static void init(BakedQuad quad, Direction face) {
+        if (FLAGS == null) return;
+        BakedQuadView view = (BakedQuadView) (Object) quad;
+        int normal = view.calculateNormal();
+        NORMAL.set(quad, normal);
+        NORMAL_FACE.set(quad, ModelQuadFacing.fromPackedNormal(normal));
+        FLAGS.set(quad, ModelQuadFlags.getQuadFlags(view, face));
+    }
+}

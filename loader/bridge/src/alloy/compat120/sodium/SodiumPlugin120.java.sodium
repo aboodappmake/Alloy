@@ -1,0 +1,67 @@
+package alloy.compat120support.sodium;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.loader.api.FabricLoader;
+import org.apache.logging.log4j.LogManager;
+import org.objectweb.asm.tree.ClassNode;
+import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
+import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Plugin of alloy.compat120.sodium.mixins.json. The config lists no mixins itself; this adds them only on the client when
+ * Fabric Sodium 0.5.x is installed (the targets are Sodium 0.5 classes), plus the Indium one when Indium is installed.
+ * Same idea as ConflictReport's OPTIONAL_CLIENT on 26.1.2: a listed mixin with a missing target would log an error.
+ */
+public final class SodiumPlugin120 implements IMixinConfigPlugin {
+    /** Mixins for Sodium 0.5 (+ Forge 47 classes). Order does not matter. */
+    static final List<String> SODIUM = List.of(
+            "BakedQuadMixin120",            // R0
+            "MeshingTaskMixin120",          // R1 R2 R3
+            "BlockRenderContextMixin120",   // R1 R2
+            "BlockRendererMixin120",        // R1 R2 R7
+            "WorldSliceMixin120",           // R11
+            "FluidRendererMixin120",        // R4
+            "BlockOcclusionCacheMixin120",  // R6
+            "LevelRendererStageMixin120");  // R5
+    static final List<String> INDIUM = List.of("IndiumBlockRenderInfoMixin120");
+    /** Iris 1.7.x hooks that Forge 47's changed targets lost (the Iris handlers are stripped by compat_replaces). */
+    static final List<String> IRIS = List.of("IrisShaderInstanceMixin120", "IrisParticlesMixin120", "IrisParticleEngineMixin120",
+            "IrisArmorMixin120", "IrisWindowMixin120");
+    /** Forge Flywheel 1.0 with Fabric Iris (R9). */
+    static final List<String> IRIS_FLYWHEEL = List.of("FlywheelIrisMixin120");
+
+    @Override public void onLoad(String mixinPackage) { }
+    @Override public String getRefMapperConfig() { return null; }
+    @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) { return true; }
+    @Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) { }
+
+    @Override public List<String> getMixins() {
+        FabricLoader fl = FabricLoader.getInstance();
+        if (fl.getEnvironmentType() != EnvType.CLIENT) return null;
+        var sodium = fl.getModContainer("sodium");
+        if (sodium.isEmpty()) return null;
+        String v = sodium.get().getMetadata().getVersion().getFriendlyString();
+        if (!v.startsWith("0.5.")) {
+            LogManager.getLogger("Alloy/Sodium").warn("Sodium {} is not 0.5.x; Alloy's Forge rendering compat for Sodium is off", v);
+            return null;
+        }
+        List<String> out = new ArrayList<>(SODIUM);
+        if (fl.isModLoaded("indium")) out.addAll(INDIUM);
+        if (fl.isModLoaded("iris")) {
+            // -Dalloy.iris.features=off: only the ShaderInstance fix (the state before particle phases and armor ids came back)
+            out.addAll("off".equals(System.getProperty("alloy.iris.features")) ? IRIS.subList(0, 1) : IRIS);
+            if (SodiumPlugin120.class.getClassLoader().getResource("dev/engine_room/flywheel/impl/FlwImplXplatImpl.class") != null)
+                out.addAll(IRIS_FLYWHEEL);
+        }
+        LogManager.getLogger("Alloy/Sodium").info("Forge rendering compat for Sodium {}: {} mixins{}{}", v, out.size(),
+                fl.isModLoaded("indium") ? " (with Indium)" : "", fl.isModLoaded("iris") ? " (with Iris)" : "");
+        return out;
+    }
+
+    @Override public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) { }
+    @Override public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) { }
+}

@@ -1,0 +1,41 @@
+# compat120 sources built for 1.21.4 (launch120.py, profile tools.compatLists.enable).
+# Forge reads sprites[2] (overlay) in its tesselate, Fabric's fluid handler gives two: chunk builds crashed near water
+fluid/LiquidBlockRendererCompat120
+# Forge builds RecipeManager with its own constructor; Fabric's registries field stayed null (bridge/src54)
+recipe/RecipeManagerRegistriesCompat121
+# Fabric block color providers: fabric-rendering-v1 BlockColorsMixin is stripped, this calls initialize and get (item tints are model based here)
+color/BlockColorsCompat120
+# duplicate key binding names (keybind bridge plan section 4) and late Fabric keys with -Dalloy.fabricAfterForge (section 5)
+input/KeyMappingAllAccess120
+input/OptionsKeyDedupe120
+input/LateFabricKeys120
+# --- port121x: the 1.21.1 set on Forge 54; javap on the Forge 54 client jar for every target
+# Fabric mods register blocks and items in onInitialize; Forge 54 locks the NamespacedWrapper as Forge 52 does (src52 file:
+# NamespacedWrapper.register(ResourceKey, T, RegistrationInfo) and the fields are the same)
+registry/NamespacedWrapperLateRegister120
+# Fabric particle factories: Forge 54 keeps providers as Map<ResourceLocation, ParticleProvider<?>> (raw-id view, retargeted accessor)
+particle/ParticleEngineCompat120
+particle/ParticleIdMap
+# Fabric biome modifications: featuresPerStep is a ClearableLazy on Forge 54 too (src52 file)
+biome/BiomeModificationFeaturesCompat120
+# Fabric getAppearance next to Forge's (same default methods on both sides)
+block/BlockAppearanceCompat120
+# block break, block entity load/unload: targets unchanged; sleep: src54 copy (Forge 54 lambda numbers)
+interaction/ServerPlayerGameModeCompat120
+entityevents/SleepCompat120
+itemchunk/LevelChunkLifecycleCompat120
+# recipe remainders on Forge 54's IForgeItem.getCraftingRemainder(ItemStack) (src54 copy)
+item/ItemCompat120
+# Fabric dynamic registries next to Forge's in WorldLoader.load (src54 copy: RegistryDataLoader.load since 1.21.2)
+registry/WorldLoaderCompat120
+client49/QuickPlayForgeBus49
+mpforge/ForgeClientNoFabricSync49
+# screen keys and mouse, render, client UseEntityCallback, continue breaking, enchanting (src54 copy; screen tick stays Fabric's)
+client52/FabricClientHooks52
+# biome weather on Forge's biome info (src52 file), null sleeping direction (src52 file)
+biome/BiomeWeatherCompat120
+entityevents/SleepDirectionCheck120
+# loot table ids for Forge's global loot modifiers (src54 copy: lambda$scheduleRegistryLoad$2)
+loot/LootIdCompat120
+# not built on 1.21.4: EarlyAttributesCompat120 (Forge 54's createLivingAttributes has no Forge attributes), ItemColorsCompat120
+# (no ItemColors class since 1.21.4)

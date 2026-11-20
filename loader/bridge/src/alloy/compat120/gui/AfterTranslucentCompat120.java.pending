@@ -1,0 +1,70 @@
+package alloy.compat120.gui;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.vertex.PoseStack;
+import java.lang.reflect.Field;
+import net.minecraft.client.Camera;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.culling.Frustum;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * WorldRenderEvents.AFTER_TRANSLUCENT on Forge 47.
+ *
+ * <p>Fabric's fabric-rendering-v1 {@code WorldRendererMixin} fires AFTER_TRANSLUCENT from {@code beforeClouds} (every
+ * {@code PoseStack.pushPose} in renderLevel), but only when {@code onRenderParticles} has set its {@code didRenderParticles}
+ * flag just before vanilla's 5-argument {@code ParticleEngine.render}. Forge 47 calls its own 6-argument render (with a
+ * Frustum), so onRenderParticles is stripped (prefit_strip) and the event never fired.
+ *
+ * <p>Fix: set the same flag after Forge's particle render call. The first pushPose after it is the one before the clouds,
+ * as on vanilla, so Fabric's own beforeClouds fires the event at the same point. The flag is a {@code @Unique} field of
+ * Fabric's mixin, so it is found by name once (Mixin may add a suffix when it renames a unique field).
+ */
+@Mixin(value = LevelRenderer.class, remap = false)
+public abstract class AfterTranslucentCompat120 {
+    private static Field alloy$flag;
+    private static boolean alloy$looked;
+
+    @WrapOperation(method = "renderLevel(Lcom/mojang/blaze3d/vertex/PoseStack;FJZLnet/minecraft/client/Camera;Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;)V",
+            remap = false,
+            at = @At(value = "INVOKE", remap = false,
+                    target = "Lnet/minecraft/client/particle/ParticleEngine;render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V"))
+    private void alloy$afterParticles(ParticleEngine engine, PoseStack pose, MultiBufferSource.BufferSource buffers, LightTexture light,
+                                      Camera camera, float partialTick, Frustum frustum, Operation<Void> original) {
+        original.call(engine, pose, buffers, light, camera, partialTick, frustum);
+        Field f = alloy$flag();
+        if (f != null) {
+            try {
+                f.setBoolean(this, true);
+            } catch (IllegalAccessException e) {
+                alloy$flag = null;
+            }
+        }
+    }
+
+    private static Field alloy$flag() {
+        if (!alloy$looked) {
+            alloy$looked = true;
+            for (Field f : LevelRenderer.class.getDeclaredFields()) {
+                if (f.getType() == boolean.class && f.getName().contains("didRenderParticles")) {
+                    try {
+                        f.setAccessible(true);
+                        alloy$flag = f;
+                    } catch (RuntimeException e) {
+                        // leave it off
+                    }
+                    break;
+                }
+            }
+            if (alloy$flag == null) {
+                org.apache.logging.log4j.LogManager.getLogger("Alloy").warn("Alloy: Fabric's didRenderParticles flag is not in LevelRenderer, WorldRenderEvents.AFTER_TRANSLUCENT stays off");
+            }
+        }
+        return alloy$flag;
+    }
+}

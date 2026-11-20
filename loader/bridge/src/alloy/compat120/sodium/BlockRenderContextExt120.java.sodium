@@ -1,0 +1,12 @@
+package alloy.compat120support.sodium;
+
+import net.minecraft.client.renderer.RenderType;
+import net.minecraftforge.client.model.data.ModelData;
+
+/** Added to Sodium's BlockRenderContext by mixin.BlockRenderContextMixin120: the Forge render type being meshed (null outside
+ *  Alloy's per-type loop) and the block's ModelData. */
+public interface BlockRenderContextExt120 {
+    void alloy$set(RenderType type, ModelData data);
+    RenderType alloy$renderType();
+    ModelData alloy$modelData();
+}

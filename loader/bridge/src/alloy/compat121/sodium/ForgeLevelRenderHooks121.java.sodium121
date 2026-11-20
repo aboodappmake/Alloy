@@ -1,0 +1,31 @@
+package alloy.compat121support.sodium;
+
+import net.caffeinemc.mods.sodium.fabric.level.FabricLevelRenderHooks;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraftforge.client.ForgeHooksClient;
+import org.joml.Matrix4f;
+
+/**
+ * R5: Sodium @Overwrites LevelRenderer.renderSectionLayer, which drops Forge 52's per-layer RenderLevelStageEvent
+ * (AFTER_SOLID_BLOCKS, AFTER_CUTOUT_MIPPED_BLOCKS_BLOCKS, AFTER_CUTOUT_BLOCKS, AFTER_TRANSLUCENT_BLOCKS,
+ * AFTER_TRIPWIRE_BLOCKS). Sodium calls this hook after each layer; Forge fires the event with the layer's render state set,
+ * so the state is set around it the same way. Forge 52 has no AddSectionGeometryEvent: mesh appenders stay Fabric's (none).
+ */
+public final class ForgeLevelRenderHooks121 extends FabricLevelRenderHooks {
+    @Override
+    public void runChunkLayerEvents(RenderType type, LevelRenderer levelRenderer, Matrix4f modelMatrix, Matrix4f projectionMatrix, int ticks,
+                                    Camera camera, Frustum frustum) {
+        super.runChunkLayerEvents(type, levelRenderer, modelMatrix, projectionMatrix, ticks, camera, frustum);
+        type.setupRenderState();
+        try {
+            ForgeHooksClient.dispatchRenderStage(type, levelRenderer, modelMatrix, projectionMatrix, ticks, camera, frustum);
+        } catch (RuntimeException e) {
+            SodiumForge121.warnOnce("stage", "Forge render stage event after " + type + " failed", e);
+        } finally {
+            type.clearRenderState();
+        }
+    }
+}

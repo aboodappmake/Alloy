@@ -1,0 +1,43 @@
+# Fabric API injectors that cannot apply on 1.21.1 Forge. Same format as compat_replaces.txt (config:mixin#handler).
+# Found with an offline mixin check against the Forge game jar, then checked in boots.
+# offline check rounds (fit120.py, 8 report(s)):
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin
+fabric-registry-sync-v0.client.mixins.json:BlockColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ItemColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ParticleManagerMixin
+fabric-rendering-v1.mixins.json:BlockColorsMixin
+fabric-rendering-v1.mixins.json:ItemColorsMixin
+fabric-tag-api-v1.mixins.json:TagFileMixin
+fabric-renderer-indigo.mixins.json:SectionBuilderMixin#hookBuildRenderBlock
+fabric-model-loading-api-v1.mixins.json:ModelLoaderBakerImplMixin#wrapInnerBake
+fabric-particles-v1.client.mixins.json:BlockDustParticleMixin#removeUntintableParticles
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#getOverlayBlock
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#modSideSpriteForOverlay
+fabric-rendering-v1.mixins.json:shader.ShaderProgramImportProcessorMixin#modifyImportId
+fabric-rendering-v1.mixins.json:shader.ShaderProgramMixin#allowNoneMinecraftId
+fabric-rendering-v1.mixins.json:shader.ShaderProgramMixin#modifyId
+fabric-sound-api-v1.mixins.json:SoundSystemMixin#getStream
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#canUseAsFuelRedirect
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#getFuelTimeRedirect
+fabric-entity-events-v1.mixins.json:MooshroomEntityMixin#afterMooshroomConversion
+fabric-object-builder-v1.mixins.json:TradeOffersTypeAwareBuyForOneEmeraldFactoryMixin#disableVanillaCheck
+fabric-object-builder-v1.client.mixins.json:HangingSignEditScreenMixin#init
+fabric-recipe-api-v1.mixins.json:ingredient.IngredientMixin#useCustomIngredientPacketCodec
+fabric-registry-sync-v0.mixins.json:ExperimentalRegistriesValidatorMixin#getDynamicRegistries
+# offline check rounds (fit120.py, 1 report(s)):
+# offline check rounds (fit120.py, 4 report(s)):
+fabric-registry-sync-v0.mixins.json:SerializableRegistriesMixin#filterNonSyncedEntries
+fabric-registry-sync-v0.mixins.json:SerializableRegistriesMixin#filterNonSyncedEntriesAgain
+# reg05 offline check: Architectury (Fabric) client.MixinEffectInstance#mojangPls redirects the ResourceLocation that
+# EffectInstance's constructor builds, so shader names with a mod namespace load. Forge 52 does the same itself
+# (ResourceLocation.tryParse, then the namespace is kept), so the redirect finds no target and the critical injection
+# failure stopped EffectInstance from loading. Nothing is lost: Forge's code loads modded effect shaders.
+architectury.mixins.json:client.MixinEffectInstance#mojangPls
+# reg05 offline check: Balm 21.0.67 (Fabric) @ModifyVariable at the farmland is() in CropBlock.getGrowthSpeed; Forge 52
+# uses canSustainPlant there (critical, CropBlock cannot load). Lost: Balm's Fabric crop growth speed hook.
+balm.fabric.mixins.json:FabricCropBlockMixin#getGrowthSpeed
+# reg05 dry boots: Architectury (Fabric) MixinCatSpawner#checkCatSpawn (an inject that captures the Cat local in
+# CatSpawner.spawnCat) fails its injection check on this Forge (Scanned 0 targets; on 1.21.1 javap still shows the
+# Cat.finalizeSpawn call, so the captured locals differ), and every boot dropped the mixin leniently.
+# Lost: Architectury's LIVING_CHECK_SPAWN for village and swamp hut cats (Forge's spawn events still fire).
+architectury.mixins.json:MixinCatSpawner#checkCatSpawn

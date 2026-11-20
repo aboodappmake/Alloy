@@ -1,0 +1,35 @@
+{
+ "schemaVersion": 1,
+ "id": "alloyloader",
+ "version": "0.5.4-beta",
+ "name": "Alloy",
+ "description": "Runs Forge mods and Fabric mods in one game: starts Forge's own mod loader inside Fabric Loader.",
+ "license": "Apache-2.0",
+ "environment": "*",
+ "entrypoints": {
+  "preLaunch": [
+   "alloy.Bridge"
+  ],
+  "main": [
+   "alloy.api.impl.ApiHooks",
+   "alloy.energy.EnergyBridgeEntry"
+  ]
+ },
+ "mixins": [
+  "alloy.mixins.json",
+  "alloy.compat.mixins.json",
+  "alloy.viewers.mixins.json",
+  "alloy.terrablender.mixins.json",
+  "alloy.worldsafe.mixins.json"
+ ],
+ "depends": {
+  "fabricloader": ">=0.20"
+ },
+ "authors": [
+  "Alloy contributors"
+ ],
+ "contact": {
+  "sources": "https://github.com/aboodappmake/Alloy-Loader",
+  "issues": "https://github.com/aboodappmake/Alloy-Loader/issues"
+ }
+}

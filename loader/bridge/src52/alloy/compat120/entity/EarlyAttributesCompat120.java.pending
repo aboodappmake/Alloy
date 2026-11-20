@@ -1,0 +1,96 @@
+package alloy.compat120.entity;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import java.util.Map;
+import java.util.Optional;
+import net.minecraft.core.Holder;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeSupplier;
+import net.minecraft.world.entity.ai.attributes.Attributes;
+import net.minecraft.world.entity.ai.attributes.DefaultAttributes;
+import net.minecraftforge.common.ForgeHooks;
+import net.minecraftforge.common.ForgeMod;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.21.1 (Forge 52) version of compat120/entity/EarlyAttributesCompat120. Fabric mods build mob attributes in onInitialize
+ * (BetterEnd, BetterNether style: {@code Mob.createMobAttributes()} for FabricDefaultAttributeRegistry). That runs before
+ * Forge registers its attributes, and Forge 52's {@code LivingEntity.createLivingAttributes()} adds
+ * {@code ForgeMod.SWIM_SPEED.getHolder().get()} and {@code NAMETAG_DISTANCE}: NoSuchElementException, the whole Fabric main
+ * stage stops.
+ *
+ * <p>Fix: in createLivingAttributes an empty holder of a Forge attribute is skipped (the rest is vanilla's own list, kept as
+ * it is), and counted. When Forge builds its attribute table ({@code ForgeHooks.modifyAttributes}), every living entity type
+ * whose default set lacks Forge's two attributes gets them, as the patched builder would have. Player.createAttributes has no
+ * Forge attribute on 1.21.1 (reach and step height are vanilla), so the 1.20.1 PlayerBuilder half is not needed.
+ */
+public final class EarlyAttributesCompat120 {
+    private EarlyAttributesCompat120() {}
+
+    @Mixin(value = LivingEntity.class, remap = false)
+    public abstract static class Builder {
+        /** Before Forge registered the attribute its RegistryObject has no value; asking it for the holder then makes an
+         *  unbound holder in the attribute registry, and the next freeze fails ("Unbound values in registry ...
+         *  forge:swim_speed"). So the registry is not asked at all. */
+        @WrapOperation(method = "createLivingAttributes", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraftforge/registries/RegistryObject;getHolder()Ljava/util/Optional;"))
+        private static Optional<?> alloy$holderIfRegistered(net.minecraftforge.registries.RegistryObject<?> attribute,
+                                                          Operation<Optional<?>> original) {
+            if (attribute.isPresent()) return original.call(attribute);
+            // a counter in a system property: mixin classes cannot share static state through the (mixin) outer class
+            System.setProperty("alloy.earlyAttributes", String.valueOf(Integer.getInteger("alloy.earlyAttributes", 0) + 1));
+            return Optional.empty();
+        }
+
+        @WrapOperation(method = "createLivingAttributes", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Ljava/util/Optional;get()Ljava/lang/Object;"))
+        private static Object alloy$forgeAttributeOrNull(Optional<?> holder, Operation<Object> original) {
+            return holder.isPresent() ? original.call(holder) : null;
+        }
+
+        @WrapOperation(method = "createLivingAttributes", remap = false,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraft/world/entity/ai/attributes/AttributeSupplier$Builder;add(Lnet/minecraft/core/Holder;)Lnet/minecraft/world/entity/ai/attributes/AttributeSupplier$Builder;"))
+        private static AttributeSupplier.Builder alloy$skipMissing(AttributeSupplier.Builder builder, Holder<Attribute> attribute,
+                                                                  Operation<AttributeSupplier.Builder> original) {
+            return attribute == null ? builder : original.call(builder, attribute);
+        }
+    }
+
+    @Mixin(value = ForgeHooks.class, remap = false)
+    public abstract static class Fill {
+        @Shadow @Final private static Map<EntityType<? extends LivingEntity>, AttributeSupplier> FORGE_ATTRIBUTES;
+
+        @SuppressWarnings("unchecked")
+        @Inject(method = "modifyAttributes", at = @At("TAIL"), remap = false)
+        private static void alloy$addForgeAttributes(CallbackInfo ci) {
+            int early = Integer.getInteger("alloy.earlyAttributes", 0);
+            if (early == 0) return;
+            Holder<Attribute> swim = ForgeMod.SWIM_SPEED.getHolder().orElse(null), tag = ForgeMod.NAMETAG_DISTANCE.getHolder().orElse(null);
+            if (swim == null || tag == null) return;
+            int n = 0;
+            for (EntityType<?> t : BuiltInRegistries.ENTITY_TYPE) {
+                if (!DefaultAttributes.hasSupplier(t)) continue;
+                EntityType<? extends LivingEntity> lt = (EntityType<? extends LivingEntity>) t;
+                AttributeSupplier s = DefaultAttributes.getSupplier(lt);
+                if (!s.hasAttribute(Attributes.MAX_HEALTH) || (s.hasAttribute(swim) && s.hasAttribute(tag))) continue;
+                AttributeSupplier.Builder b = new AttributeSupplier.Builder(s);
+                if (!s.hasAttribute(swim)) b.add(swim);
+                if (!s.hasAttribute(tag)) b.add(tag);
+                FORGE_ATTRIBUTES.put(lt, b.build());
+                n++;
+            }
+            org.apache.logging.log4j.LogManager.getLogger("Alloy").info(
+                    "Alloy: {} attribute set(s) were built before Forge registered its attributes; added Forge's attributes to {} entity type(s)", early, n);
+        }
+    }
+}

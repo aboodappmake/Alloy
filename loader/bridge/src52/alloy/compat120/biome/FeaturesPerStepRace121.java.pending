@@ -1,0 +1,32 @@
+package alloy.compat120.biome;
+
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import net.minecraftforge.common.util.ClearableLazy;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * 1.21.1 (Forge 52): {@code ClearableLazy$Concurrent.get()} reads the value, and when it was null takes the lock; if another
+ * thread filled the value meanwhile, it leaves the lock and returns the null it read first. {@code ChunkGenerator.featuresPerStep}
+ * is such a lazy, and it is cleared at server start ({@code refreshFeaturesPerStep}, also by BiomeModificationFeaturesCompat120
+ * after Fabric's biome modifications). The first features step then runs on several world generation threads at once, and the
+ * losers get null: "Cannot invoke List.size() because list is null" in applyBiomeDecoration and a broken chunk. C2ME's
+ * parallel world generation hit it in the first seconds of every world (top121, C2ME 0.4.0-alpha.0.30); plain Forge can hit it
+ * too, just rarely.
+ *
+ * <p>Fix: read again when the lazy answered null. The second read takes the lazy's fast path and sees the filled value.
+ */
+@Mixin(value = ChunkGenerator.class, remap = false)
+public abstract class FeaturesPerStepRace121 {
+    @Redirect(method = "applyBiomeDecoration", remap = false, require = 0, at = @At(value = "INVOKE", remap = false,
+            target = "Lnet/minecraftforge/common/util/ClearableLazy;get()Ljava/lang/Object;"))
+    private Object alloy$featuresPerStep(ClearableLazy<?> lazy) {
+        Object v = lazy.get();
+        for (int i = 0; v == null && i < 16; i++) {
+            if (i > 0) Thread.onSpinWait();
+            v = lazy.get();
+        }
+        return v;
+    }
+}

@@ -1,0 +1,35 @@
+package alloy.compat120.net;
+
+import io.netty.channel.Channel;
+import net.minecraft.network.Connection;
+import net.minecraft.network.ConnectionProtocol;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.20.1: a client that joins a LAN or dedicated server sometimes gets no packet at all after its hello and leaves with
+ * "Timed out" 30 s later. Found with test_lan120.py (about 4 in 10 joins on loopback): the server has sent and flushed every
+ * login query, the client's channel is open with autoRead on and an empty frame decoder, but Netty no longer reads from it.
+ *
+ * <p>1.20.1's Connection turns autoRead off when a packet of the next protocol is sent (HANDSHAKE to LOGIN for the hello) and
+ * back on from a task that setProtocol queues on the event loop. When that re-enable and Netty's own "clear read pending"
+ * task end up in the wrong order, the flag is true but the channel's read interest is gone, so the server's answer stays
+ * in the socket. One channel.read() call, queued after setProtocol's own task, arms the read again. It does nothing when
+ * the channel is already reading (Netty then only keeps the read interest it has).
+ */
+@Mixin(value = Connection.class, remap = false)
+public abstract class ConnectionReadFix120 {
+    @Shadow private Channel channel;
+
+    @Inject(method = "setProtocol", at = @At("TAIL"), require = 0)
+    private void alloy$rearmRead(ConnectionProtocol protocol, CallbackInfo ci) {
+        Channel ch = channel;
+        if (ch == null) return;
+        ch.eventLoop().execute(() -> {
+            if (ch.isOpen() && ch.config().isAutoRead()) ch.read();
+        });
+    }
+}

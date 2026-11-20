@@ -1,0 +1,48 @@
+package alloy.compat120.item;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import net.fabricmc.fabric.api.item.v1.FabricItem;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+
+/**
+ * 1.21.4 to 1.21.11 copy (bridge/src54 overlay): ItemRemainder only, on the 1.21.2+ shape. Vanilla 1.21.2 made the recipe
+ * remainder an ItemStack ({@code Item.getCraftingRemainder()}, final), and Forge 54, 58 and 61 have the stack aware
+ * {@code IForgeItem.getCraftingRemainder(ItemStack)} (default: the vanilla remainder) that {@code IForgeItemStack.getCraftingRemainder()}
+ * calls. Crafting, furnace and brewing call the ItemStack method. FabricItem has {@code getRecipeRemainder(ItemStack)}
+ * (default: the vanilla remainder). Fabric reaches it by redirecting the vanilla calls that Forge replaced, so its item
+ * CraftingRecipeMixin, BrewingStandBlockEntityMixin and AbstractFurnaceBlockEntityMixin are off (compat_replaces) and
+ * this feeds Forge's method instead: Item gets a concrete {@code getCraftingRemainder(ItemStack)} that replaces IForgeItem's
+ * default. An item class that overrides FabricItem#getRecipeRemainder gets Fabric's answer, every other item keeps Forge's
+ * default (the vanilla remainder); Forge items that override the Forge method still win. As in the 1.20.1 file, the override
+ * check is reflection once per item class.
+ */
+public final class ItemCompat120 {
+    private ItemCompat120() {}
+
+    @Mixin(value = Item.class, remap = false)
+    public abstract static class ItemRemainder {
+        @Unique private static final Map<Class<?>, Boolean> alloy$fabricRemainder = new ConcurrentHashMap<>();
+
+        @Unique
+        private static boolean alloy$overridesRemainder(Class<?> c) {
+            return alloy$fabricRemainder.computeIfAbsent(c, k -> {
+                try {
+                    return k.getMethod("getRecipeRemainder", ItemStack.class).getDeclaringClass() != FabricItem.class;
+                } catch (NoSuchMethodException e) {
+                    return false;
+                }
+            });
+        }
+
+        /** Replaces IForgeItem#getCraftingRemainder(ItemStack) on Item. */
+        public ItemStack getCraftingRemainder(ItemStack stack) {
+            Item self = (Item) (Object) this;
+            if (alloy$overridesRemainder(self.getClass())) return ((FabricItem) self).getRecipeRemainder(stack);
+            return self.getCraftingRemainder();
+        }
+    }
+}

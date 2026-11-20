@@ -1,0 +1,166 @@
+package alloy.compat120.entityevents;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import com.mojang.datafixers.util.Either;
+import java.util.Optional;
+import net.minecraft.util.Unit;
+import net.fabricmc.fabric.api.entity.event.v1.EntitySleepEvents;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.EntityType;
+import net.minecraft.world.entity.LivingEntity;
+import net.minecraft.world.entity.player.Player;
+import net.minecraft.world.level.CollisionGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.LevelReader;
+import net.minecraft.world.level.block.BedBlock;
+import net.minecraft.world.level.block.Blocks;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.phys.Vec3;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Redirect;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): the EntitySleepEvents hooks that Fabric's fabric-entity-events-v1 mixins cannot
+ * place on Forge-patched Minecraft. Strip these Fabric injectors (prefit "fixed" list) and load these mixins instead:
+ * LivingEntityMixin#onIsSleepingInBed, #onGetSleepingDirection, #modifyBedForOccupiedState, #setOccupiedState,
+ * #modifyWakeUpPosition, PlayerEntityMixin#redirectDaySleepCheck, ServerPlayerEntityMixin#redirectDaySleepCheck.
+ *
+ * <p>What Forge 47 changed (checked on forge-1.20.1-47.4.29 client classes, Mojang names):
+ * <ul>
+ *   <li>Forge's LivingEntity lambdas have other numbers than vanilla's (Forge compiles them from its own sources):
+ *       vanilla lambda$stopSleeping$9 / lambda$checkBedExists$7 are lambda$stopSleeping$11 / lambda$checkBedExists$9.
+ *       These names are already Mojang-style in Forge's SRG jar, so the name translator does not change them.</li>
+ *   <li>startSleeping and lambda$stopSleeping$11 test {@code BlockState.isBed(BlockGetter, BlockPos, LivingEntity)} and call
+ *       {@code BlockState.setBedOccupied(Level, BlockPos, LivingEntity, boolean)} instead of {@code Level.setBlock}.</li>
+ *   <li>lambda$checkBedExists$9 returns {@code ForgeEventFactory.fireSleepingLocationCheck(this, pos)}.</li>
+ *   <li>getBedOrientation calls {@code BlockState.getBedDirection(LevelReader, BlockPos)} (vanilla: BedBlock.getBedOrientation).</li>
+ *   <li>Player.tick and ServerPlayer.startSleepInBed call {@code ForgeEventFactory.fireSleepingTimeCheck(Player, Optional)}
+ *       (true = may sleep now) instead of {@code Level.isDay()}. One call in each method.</li>
+ * </ul>
+ * Fabric's listeners run after Forge's events and can override them, as Fabric's hooks did on vanilla. Where Fabric passed a
+ * "vanilla result" it now gets Forge's result (which includes Forge mods' answers), and BedBlock checks become isBed checks
+ * so Forge custom beds count as beds.
+ */
+public final class SleepCompat120 {
+    private SleepCompat120() {}
+
+    @Mixin(value = LivingEntity.class, remap = false)
+    public abstract static class LivingSleep {
+        /** ALLOW_BED in checkBedExists (Fabric: RETURN of vanilla lambda$checkBedExists$7). */
+        @Inject(method = "lambda$checkBedExists$9(Lnet/minecraft/core/BlockPos;)Ljava/lang/Boolean;", at = @At("RETURN"),
+                cancellable = true, remap = false)
+        private void alloy$allowBedCheck(BlockPos pos, CallbackInfoReturnable<Boolean> cir) {
+            LivingEntity self = (LivingEntity) (Object) this;
+            BlockState state = self.level().getBlockState(pos);
+            InteractionResult result = EntitySleepEvents.ALLOW_BED.invoker().allowBed(self, pos, state, Boolean.TRUE.equals(cir.getReturnValue()));
+            if (result != InteractionResult.PASS) cir.setReturnValue(result.consumesAction());
+        }
+
+        /**
+         * ALLOW_BED for the occupied-state update (Fabric: modifyBedForOccupiedState). Same trick as Fabric: when a listener
+         * allows a block that is not a bed, the local is swapped for a red bed so the isBed branch runs; setBedOccupied below
+         * re-reads the real block. The "vanilla result" is Forge's isBed, so Forge beds that are not BedBlocks count.
+         */
+        @ModifyVariable(method = {"startSleeping(Lnet/minecraft/core/BlockPos;)V", "lambda$stopSleeping$11(Lnet/minecraft/core/BlockPos;)V"},
+                at = @At(value = "INVOKE_ASSIGN", remap = false,
+                        target = "Lnet/minecraft/world/level/Level;getBlockState(Lnet/minecraft/core/BlockPos;)Lnet/minecraft/world/level/block/state/BlockState;"),
+                remap = false)
+        private BlockState alloy$allowBedSwap(BlockState state, BlockPos pos) {
+            LivingEntity self = (LivingEntity) (Object) this;
+            InteractionResult result = EntitySleepEvents.ALLOW_BED.invoker().allowBed(self, pos, state, state.isBed(self.level(), pos, self));
+            return result.consumesAction() ? Blocks.RED_BED.defaultBlockState() : state;
+        }
+
+        /** SET_BED_OCCUPATION_STATE (Fabric: setOccupiedState on Level.setBlock). Port of the 26.1 EntityEventsCompat redirect. */
+        @Redirect(method = {"startSleeping(Lnet/minecraft/core/BlockPos;)V", "lambda$stopSleeping$11(Lnet/minecraft/core/BlockPos;)V"},
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraft/world/level/block/state/BlockState;setBedOccupied(Lnet/minecraft/world/level/Level;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/entity/LivingEntity;Z)V"),
+                remap = false)
+        private void alloy$setBedOccupied(BlockState receiver, Level level, BlockPos pos, LivingEntity sleeper, boolean occupied) {
+            BlockState real = level.getBlockState(pos);   // receiver may be the red-bed swap above
+            if (EntitySleepEvents.SET_BED_OCCUPATION_STATE.invoker().setBedOccupationState((LivingEntity) (Object) this, pos, real, occupied)) {
+                return;
+            }
+            // unswapped: Forge behaviour (custom beds override setBedOccupied); swapped: only touch a real block with OCCUPIED
+            if (receiver == real || real.hasProperty(BedBlock.OCCUPIED)) {
+                real.setBedOccupied(level, pos, sleeper, occupied);
+            }
+        }
+
+        /** MODIFY_SLEEPING_DIRECTION (Fabric wrapped BedBlock.getBedOrientation; Forge calls BlockState.getBedDirection). */
+        @WrapOperation(method = "getBedOrientation()Lnet/minecraft/core/Direction;", remap = false,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraft/world/level/block/state/BlockState;getBedDirection(Lnet/minecraft/world/level/LevelReader;Lnet/minecraft/core/BlockPos;)Lnet/minecraft/core/Direction;"))
+        private Direction alloy$modifySleepingDirection(BlockState state, LevelReader level, BlockPos pos, Operation<Direction> original) {
+            Direction direction = original.call(state, level, pos);
+            return EntitySleepEvents.MODIFY_SLEEPING_DIRECTION.invoker().modifySleepDirection((LivingEntity) (Object) this, pos, direction);
+        }
+
+        /** MODIFY_WAKE_UP_POSITION (Fabric: modifyWakeUpPosition), same body as Fabric's but with Forge's isBed test. */
+        @Redirect(method = "lambda$stopSleeping$11(Lnet/minecraft/core/BlockPos;)V",
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraft/world/level/block/BedBlock;findStandUpPosition(Lnet/minecraft/world/entity/EntityType;Lnet/minecraft/world/level/CollisionGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;F)Ljava/util/Optional;"),
+                remap = false)
+        private Optional<Vec3> alloy$modifyWakeUpPosition(EntityType<?> type, CollisionGetter world, BlockPos pos, Direction direction, float yaw) {
+            LivingEntity self = (LivingEntity) (Object) this;
+            BlockState bedState = world.getBlockState(pos);
+            Optional<Vec3> original = bedState.isBed(world, pos, self) ? BedBlock.findStandUpPosition(type, world, pos, direction, yaw) : Optional.empty();
+            Vec3 pos2 = EntitySleepEvents.MODIFY_WAKE_UP_POSITION.invoker().modifyWakeUpPosition(self, pos, bedState, original.orElse(null));
+            return Optional.ofNullable(pos2);
+        }
+    }
+
+    /** ALLOW_SLEEP_TIME while sleeping (Fabric: PlayerEntityMixin#redirectDaySleepCheck on Level.isDay in tick). */
+    @Mixin(value = Player.class, remap = false)
+    public abstract static class PlayerSleepTime {
+        @WrapOperation(method = "tick()V", remap = false,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraftforge/event/ForgeEventFactory;fireSleepingTimeCheck(Lnet/minecraft/world/entity/player/Player;Ljava/util/Optional;)Z"))
+        private boolean alloy$allowSleepTime(Player player, Optional<BlockPos> pos, Operation<Boolean> original) {
+            boolean canSleep = original.call(player, pos);
+            if (pos.isPresent()) {
+                InteractionResult result = EntitySleepEvents.ALLOW_SLEEP_TIME.invoker().allowSleepTime(player, pos.get(), canSleep);
+                if (result != InteractionResult.PASS) return result.consumesAction();
+            }
+            return canSleep;
+        }
+    }
+
+    /** ALLOW_SLEEP_TIME when lying down (Fabric: ServerPlayerEntityMixin#redirectDaySleepCheck in startSleepInBed). */
+    @Mixin(value = ServerPlayer.class, remap = false)
+    public abstract static class ServerPlayerSleepTime {
+        @WrapOperation(method = "startSleepInBed(Lnet/minecraft/core/BlockPos;)Lcom/mojang/datafixers/util/Either;", remap = false,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraftforge/event/ForgeEventFactory;fireSleepingTimeCheck(Lnet/minecraft/world/entity/player/Player;Ljava/util/Optional;)Z"))
+        private boolean alloy$allowSleepTime(Player player, Optional<BlockPos> pos, Operation<Boolean> original) {
+            boolean canSleep = original.call(player, pos);
+            if (pos.isPresent()) {
+                InteractionResult result = EntitySleepEvents.ALLOW_SLEEP_TIME.invoker().allowSleepTime(player, pos.get(), canSleep);
+                if (result != InteractionResult.PASS) return result.consumesAction();
+            }
+            return canSleep;
+        }
+
+        /**
+         * MODIFY_SLEEPING_DIRECTION null = cannot sleep here (Fabric: onTrySleepDirectionCheck, stripped: its locals capture
+         * does not match Forge's startSleepInBed, which has two more locals). Fabric's redirect on the FACING getValue still
+         * runs and stores its answer in the Direction local; this checks it right after, at the first isSleeping() call,
+         * before vanilla uses the direction (bedInRange would throw a NullPointerException).
+         */
+        @Inject(method = "startSleepInBed(Lnet/minecraft/core/BlockPos;)Lcom/mojang/datafixers/util/Either;", remap = false, cancellable = true,
+                at = @At(value = "INVOKE", ordinal = 0, remap = false, target = "Lnet/minecraft/server/level/ServerPlayer;isSleeping()Z"))
+        private void alloy$nullSleepDirection(BlockPos pos, CallbackInfoReturnable<Either<Player.BedSleepingProblem, Unit>> cir,
+                                              @Local(ordinal = 0) Direction direction) {
+            if (direction == null) cir.setReturnValue(Either.left(Player.BedSleepingProblem.NOT_POSSIBLE_HERE));
+        }
+    }
+}

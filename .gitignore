@@ -1,0 +1,7 @@
+__pycache__/
+*.pyc
+loader/**/build/
+loader/installer/res/prefit/
+*.jar
+*.exe
+dist/

@@ -1,0 +1,5 @@
+{
+ "required": false, "minVersion": "0.8", "package": "alloy.compat120.embeddium", "compatibilityLevel": "JAVA_17",
+ "client": ["OptionIdGeneratorCompat120", "PlatformUtilCompat120", "ReesesScreenCompat120"],
+ "injectors": {"defaultRequire": 0}
+}

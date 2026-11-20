@@ -1,0 +1,29 @@
+package alloy.compat120.loot;
+
+import java.util.List;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.LootTable;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): fabric-loot-api-v2 LootTableAccessor#fabric_getPools on Forge's LootTable.
+ *
+ * <p>Fabric's accessor reads {@code LootPool[] pools}. Forge 47 made the field a {@code List<LootPool>} (with addPool /
+ * removePool for LootTableLoadEvent), so the accessor finds no field ("No candidates were found matching pools"). Without it
+ * FabricLootTableBuilder.copyOf, which LootManagerMixin calls for every loot table on every data load, fails. The accessor
+ * mixin cannot be disabled (a class in a mixin package can never be loaded as a plain interface), so adapt_fabric.py points
+ * the accessor at {@code alloy$pools} (compat_replaces.1.20.1.txt) and this mixin keeps that array in step with Forge's list.
+ */
+@Mixin(value = LootTable.class, remap = false)
+public abstract class LootTableCompat120 {
+    @Shadow @Final private List<LootPool> pools;
+    private LootPool[] alloy$pools = new LootPool[0];
+
+    @Inject(method = {"<init>", "addPool", "removePool"}, at = @At("RETURN"))
+    private void alloy$syncPools(CallbackInfo ci) { alloy$pools = pools.toArray(new LootPool[0]); }
+}

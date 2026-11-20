@@ -1,0 +1,5 @@
+{
+ "required": false, "minVersion": "0.8", "package": "alloy.compat120.presence", "plugin": "alloy.ConflictReport", "compatibilityLevel": "JAVA_17",
+ "mixins": ["ModListPresenceCompat120"],
+ "injectors": {"defaultRequire": 1}
+}

@@ -1,0 +1,6 @@
+{
+ "required": false, "minVersion": "0.8", "package": "alloy.compat121.sodium.mixin", "plugin": "alloy.compat121support.sodium.SodiumPlugin121",
+ "compatibilityLevel": "JAVA_21",
+ "mixins": [], "client": [],
+ "injectors": {"defaultRequire": 1}
+}

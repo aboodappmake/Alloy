@@ -1,0 +1,29 @@
+# Mods Alloy treats specially, read by Mod Doctor (alloy.ideas.ModRisks) and anything else in the installer that needs it.
+# Sources: mod and Connector issue trackers, and test runs of big modpacks.
+# columns: mod ids (comma separated; "file:<prefix>" matches the start of a lowercase jar file name, "re:<regex>" the whole lowercase name, for service jars like Connector that declare no mod id)	action	loader (forge|fabric|any)	Fabric original ids (PORT only, comma separated)	message	minecraft (optional: empty = all, "1.20" = 1.20 and 1.20.x, "!1.20" = all others)	fix (optional)
+#   BLOCK = the game will not start correctly, PORT = a Forge port of a Fabric mod (warn when the original is installed too),
+#   PREFER = a Forge port that is the better pick than its Fabric original on that version (warn when the original is installed too),
+#   RISK = high risk warning, NOTE = information only
+connectormod,connector,file:connector-,file:sinytra-connector	BLOCK	any		Sinytra Connector runs Fabric mods on Forge. That is Alloy's job: both together patch the same things and clash. Remove it; put the Fabric mods it was for in mods/.
+connectorextras,file:connectorextras,file:connector-extras	BLOCK	any		Connector Extras is an add-on for Sinytra Connector, which does Alloy's job and clashes with it. Remove it.
+fabric_api,forgified_fabric_api,file:forgified-fabric-api,re:fabric-api-\d[\d.]*\+\d[\d.]*\+\d[\d.]*\.jar	BLOCK	forge		Forgified Fabric API is a Forge copy of Fabric API. Alloy already ships the real Fabric API; the two clash. Remove it from forgemods/.
+kilt	BLOCK	any		Kilt runs Forge mods on Fabric. That is Alloy's job and the two clash. Remove it.
+embeddium,rubidium,xenon	PORT	forge	sodium	is a Forge port of Sodium. Two renderers in one game crash or draw wrong. Keep the real Sodium (Fabric, mods/) and remove the port.	!1.20
+embeddium,rubidium,xenon	PORT	forge	sodium	is the Forge port of Sodium and the safer renderer on Minecraft 1.20.x under Alloy (Forge mods' blocks and models render through it as on plain Forge). Two renderers in one game crash or draw wrong.	1.20
+oculus	PORT	forge	iris	is a Forge port of Iris. Keep the real Iris (Fabric, mods/) and remove the port.
+canary,radium	PORT	forge	lithium	is a Forge port of Lithium. Both patch the same game code. Keep the real Lithium (Fabric, mods/) and remove the port.	!1.20
+radium	PREFER	forge	lithium	(Radium Re-Reforged) is the Forge port of Lithium that fires Forge's chunk watch events and sees Forge multipart entities and modded equipment. Fabric Lithium on Forge misses those.	1.20
+canary	PREFER	forge	lithium	is an old, unmaintained Forge port of Lithium. Never run it next to Fabric Lithium. Radium Re-Reforged (Forge) is the better port on 1.20.1.	1.20	optional: swap Canary for Radium Re-Reforged (Forge build)
+lithium	RISK	fabric		Fabric Lithium on Forge 47 skips Forge's chunk watch events and does not see Forge multipart entities or modded equipment storage (desync with SecurityCraft, Ice and Fire, multipart mobs). Radium Re-Reforged is the same Lithium code with those fixed.	1.20	swap Lithium for Radium Re-Reforged (Forge build, forgemods/)
+c2me	NOTE	fabric		Alloy turns its async chunk saving off on every start (config/c2me.toml ioSystem.async, gcFreeChunkSerializer and recoverFromErrors = false). That path skips Forge's chunk save event and runs Forge chunk capability code off the server thread, so mods would lose per-chunk data. Its threaded world generation stays on. Back up worlds: C2ME is alpha.		optional: on Forge 1.20.1, FastChunkGen (Forge) keeps those events
+starlight	PORT	forge	starlight	is the Forge build of Starlight. Keep one Starlight only (the Fabric one in mods/ works on Alloy).	!1.20
+starlight	RISK	fabric		Fabric Starlight ignores Forge's position aware block light (Forge blocks whose light depends on where they are), and the wrong light is saved with the chunk. Starlight is not needed on 1.20.x: Mojang's light engine took its ideas. Removing it is safe, vanilla relights those chunks.	1.20	remove Starlight from mods/
+starlight	NOTE	forge		Starlight is archived and its author says it is not needed on 1.20.x. It works; removing it is safe (vanilla relights the chunks).	1.20
+kreno,kryptonfnp,krypton	PORT	forge	krypton	is a Forge port of Krypton. Keep the real Krypton (Fabric, mods/) and remove the port.	!1.20
+kreno,kryptonfnp	PREFER	forge	krypton	(Krypton Reno) is the maintained Krypton port, built for Forge's login and network path. Fabric Krypton 0.2.3 for 1.20.1 is from 2023 and untested on Alloy LAN or servers.	1.20
+krypton	RISK	fabric		Fabric Krypton 0.2.3 for 1.20.1 is from 2023 and rewrites the Netty pipeline that Forge's login and network code also hooks. It is untested on Alloy LAN or servers.	1.20	swap Krypton for Krypton Reno (Forge build, forgemods/)
+sodiumdynamiclights,dynamiclightsreforged	PORT	forge	lambdynlights,sodiumdynamiclights	is a Forge port of a dynamic lights mod. Keep the Fabric original and remove the port.
+modernfix	RISK	fabric		the Fabric build of ModernFix patches Fabric's model loading and dynamic resources, which Forge 47 replaced with its own. Expect missing models or a crash at resource load.	1.20	use the Forge build of ModernFix (forgemods/)
+forgeconfigapiport	RISK	fabric		Forge Config API Port (Fabric build) puts Forge config classes into a Fabric jar next to real Forge. Not tested on Alloy and a likely class clash. Prefer the Forge build of the mod that needs it, which uses Forge's own config.
+kubejs	NOTE	any		KubeJS (with Rhino) is not verified on Alloy yet. Its scripts see only the registries and events of its own loader's mods.
+rhino	NOTE	any		Rhino (KubeJS's script engine) is not verified on Alloy yet; one Fabric run exited about 3 seconds after joining a world.

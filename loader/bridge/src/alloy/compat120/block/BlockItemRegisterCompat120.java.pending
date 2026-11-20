@@ -1,0 +1,29 @@
+package alloy.compat120.block;
+
+import net.minecraft.world.item.BlockItem;
+import net.minecraft.world.level.block.Block;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * 1.20.1: a Fabric mod may register a BlockItem before its Block (Wilder Wild 3.0.7 WWBlocks.registerBlockAfter: item first,
+ * then block). Forge's item add callback calls {@code BlockItem.registerBlocks}, whose {@code getBlock()} looks the block up
+ * through Forge's delegate and throws "No delegate exists for value Block{minecraft:air}" for a block not registered yet,
+ * which stops the mod's main entrypoint. Fall back to the block object itself (the same instance the delegate returns once
+ * the block is registered) for the block-to-item map.
+ */
+@Mixin(value = BlockItem.class, remap = false)
+public abstract class BlockItemRegisterCompat120 {
+    @Shadow private Block getBlockRaw() { throw new AssertionError(); }
+
+    @Redirect(method = "registerBlocks", at = @At(value = "INVOKE", target = "Lnet/minecraft/world/item/BlockItem;getBlock()Lnet/minecraft/world/level/block/Block;"))
+    private Block alloy$blockBeforeRegistered(BlockItem self) {
+        try {
+            return self.getBlock();
+        } catch (IllegalArgumentException e) {
+            return getBlockRaw();
+        }
+    }
+}

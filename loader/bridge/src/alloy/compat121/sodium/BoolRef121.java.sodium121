@@ -1,0 +1,11 @@
+package alloy.compat121support.sodium;
+
+import com.llamalad7.mixinextras.sugar.ref.LocalBooleanRef;
+
+/** A plain LocalBooleanRef for calling Sodium methods that take one (SodiumWorldRenderer.renderBlockEntities' glow flag). */
+public final class BoolRef121 implements LocalBooleanRef {
+    private boolean value;
+
+    @Override public boolean get() { return value; }
+    @Override public void set(boolean value) { this.value = value; }
+}

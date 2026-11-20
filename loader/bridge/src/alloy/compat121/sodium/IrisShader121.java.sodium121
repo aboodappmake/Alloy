@@ -1,0 +1,70 @@
+package alloy.compat121support.sodium;
+
+import net.minecraft.server.packs.resources.ResourceProvider;
+
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.util.Set;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+/**
+ * Iris 1.8.8 ShaderInstance hooks on Forge 52 (see mixin/IrisShaderInstanceMixin121), by reflection so the bridge compiles
+ * without Iris on the class path. Only loaded when that mixin runs, which the plugin adds only with Iris installed.
+ */
+public final class IrisShader121 {
+    private static final Logger LOG = LogManager.getLogger("Alloy/Iris");
+    /** Iris MixinShaderInstance.ATTRIBUTE_LIST */
+    private static final Set<String> ATTRIBUTES = Set.of("Position", "Color", "Normal", "UV0", "UV1", "UV2");
+    private static final Class<?> EXTENDED;
+    static {
+        Class<?> c = null;
+        try {
+            c = Class.forName("net.irisshaders.iris.pipeline.programs.ExtendedShader", false, IrisShader121.class.getClassLoader());
+        } catch (ReflectiveOperationException | LinkageError e) {
+            LOG.warn("Iris ExtendedShader not found; Iris shader attributes and geometry shaders are off: {}", e.toString());
+        }
+        EXTENDED = c;
+    }
+
+    private IrisShader121() { }
+
+    public static boolean isExtended(Object shader) {
+        return EXTENDED != null && EXTENDED.isInstance(shader);
+    }
+
+    /** Iris renames the vertex attributes of its own shaders to iris_*. Returns the name to bind. */
+    public static CharSequence attribute(Object shader, CharSequence name) {
+        return isExtended(shader) && ATTRIBUTES.contains(String.valueOf(name)) ? "iris_" + name : name;
+    }
+
+    /** Iris's ShaderInstanceInterface.iris$createExtraShaders(provider, name): geometry and tessellation shaders. */
+    public static void createExtraShaders(Object shader, ResourceProvider provider, String name) {
+        if (!isExtended(shader)) return;   // the default in Iris's mixin does nothing
+        try {
+            Method m = shader.getClass().getMethod("iris$createExtraShaders", ResourceProvider.class, String.class);
+            m.invoke(shader, provider, name);
+        } catch (InvocationTargetException e) {
+            Throwable t = e.getCause();
+            if (t instanceof RuntimeException r) throw r;
+            if (t instanceof Error er) throw er;
+            throw new RuntimeException(t);
+        } catch (ReflectiveOperationException e) {
+            LOG.warn("Iris createExtraShaders not callable on {}: {}", shader.getClass().getName(), e.toString());
+        }
+    }
+
+    /** Iris MixinWindow#iris$enableDebugContext: GLFW debug context hints when Iris's debug option is on (called before the window) */
+    public static void debugContextHints() {
+        try {
+            Class<?> iris = Class.forName("net.irisshaders.iris.Iris", false, IrisShader121.class.getClassLoader());
+            Object config = iris.getMethod("getIrisConfig").invoke(null);
+            if (config == null || !(boolean) config.getClass().getMethod("areDebugOptionsEnabled").invoke(config)) return;
+            org.lwjgl.glfw.GLFW.glfwWindowHint(org.lwjgl.glfw.GLFW.GLFW_OPENGL_DEBUG_CONTEXT, org.lwjgl.glfw.GLFW.GLFW_TRUE);
+            org.lwjgl.glfw.GLFW.glfwWindowHint(org.lwjgl.glfw.GLFW.GLFW_CONTEXT_NO_ERROR, org.lwjgl.glfw.GLFW.GLFW_FALSE);
+            LOG.info("OpenGL debug context activated (Iris debug option, Forge window)");
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            LOG.warn("Iris debug option not readable; no OpenGL debug context: {}", e.toString());
+        }
+    }
+}

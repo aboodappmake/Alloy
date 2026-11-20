@@ -1,0 +1,75 @@
+package alloy.compat120.resource;
+
+import alloy.compat120support.ReloadTypes;
+import com.llamalad7.mixinextras.sugar.Local;
+import java.util.List;
+import net.fabricmc.fabric.impl.resource.loader.FabricLifecycledResourceManager;
+import net.minecraft.server.ReloadableServerResources;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.PreparableReloadListener;
+import net.minecraft.server.packs.resources.ReloadableResourceManager;
+import net.minecraft.server.packs.resources.ResourceManager;
+import net.minecraft.server.packs.resources.SimpleReloadInstance;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 / 1.20.4 (Fabric API 0.92.x / 0.97.x): Fabric resource reload listeners
+ * ({@code ResourceManagerHelper.get(type).registerReloadListener}) never ran when a Forge mod wraps the resource manager.
+ *
+ * <p>Fabric's SimpleResourceReloadMixin adds its listeners in {@code SimpleReloadInstance.create} only when the manager it is
+ * given is a {@code FabricLifecycledResourceManager} (Fabric's mixin on MultiPackResourceManager): that is where it reads the
+ * pack type. Blueprint 7 (any Team Abnormals mod) wraps the client manager in a RemoldedResourceManager inside
+ * {@code ReloadableResourceManager.createReload}, so the type is unknown and the Fabric listeners are left out of every
+ * client reload. In VORTEX Foundations Dynamic Surroundings' listener never ran and the first client tick crashed
+ * (NullPointerException "rootPaths"). The server manager there was not Fabric's either (no Fabric data listener ran).
+ * Connector had the same bug (Connector #919, #967); Forgified Fabric API fixed it by guessing the type.
+ *
+ * <p>Only managers Fabric cannot read are handled here (Fabric does the rest itself, so nothing is added twice):
+ * <ul>
+ * <li>client: {@link Manager} remembers each ReloadableResourceManager's listener list and type by identity. Not a
+ * thread-local: Moonlight's ReloadInstanceWrapper (VORTEX) calls {@code create} later, after createReload returned.</li>
+ * <li>server: {@link Server} sets SERVER_DATA as a hint while ReloadableServerResources.loadResources runs. Forge hands
+ * create a new list there (vanilla listeners plus AddReloadListenerEvent's), so the list cannot be the key.</li>
+ * </ul>
+ * {@link Instance} then adds Fabric's listeners after the others (ReloadTypes.withFabric: Connector's order, idempotent by
+ * Fabric id, mutable list). A reload of unknown type is logged once per manager class instead of skipped silently.
+ */
+public final class ReloadSortCompat120 {
+    private ReloadSortCompat120() {}
+
+    @Mixin(value = ReloadableResourceManager.class, remap = false)
+    public abstract static class Manager {
+        @Shadow @Final private PackType type;
+        @Shadow @Final private List<PreparableReloadListener> listeners;
+
+        @Inject(method = "createReload", at = @At("HEAD"))
+        private void alloy$reloadType(CallbackInfoReturnable<?> cir) { ReloadTypes.remember(listeners, type); }
+    }
+
+    @Mixin(value = ReloadableServerResources.class, remap = false)
+    public abstract static class Server {
+        @Inject(method = "loadResources", at = @At("HEAD"))
+        private static void alloy$dataHint(CallbackInfoReturnable<?> cir) { ReloadTypes.HINT.set(PackType.SERVER_DATA); }
+
+        @Inject(method = "loadResources", at = @At("RETURN"))
+        private static void alloy$dataHintEnd(CallbackInfoReturnable<?> cir) { ReloadTypes.HINT.remove(); }
+    }
+
+    @Mixin(value = SimpleReloadInstance.class, remap = false)
+    public abstract static class Instance {
+        @ModifyVariable(method = "create", at = @At("HEAD"), argsOnly = true)
+        private static List<PreparableReloadListener> alloy$fabricListeners(List<PreparableReloadListener> listeners,
+                                                                           @Local(argsOnly = true) ResourceManager manager) {
+            if (manager instanceof FabricLifecycledResourceManager) return listeners;   // Fabric API finds the type itself
+            PackType t = ReloadTypes.typeOf(listeners);
+            if (t == null) { ReloadTypes.unknown(manager); return listeners; }
+            return ReloadTypes.withFabric(t, listeners);
+        }
+    }
+}

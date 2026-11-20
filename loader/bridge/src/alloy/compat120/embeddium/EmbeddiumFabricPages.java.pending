@@ -1,0 +1,132 @@
+package alloy.compat120support.embeddium;
+
+import java.lang.reflect.Method;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Helper of compat120.embeddium (kept outside the mixin package): which Fabric mod made an Embeddium option page, the
+ * Fabric name of a mod id, and whether to keep Embeddium's own video settings screen over Reese's.
+ */
+public final class EmbeddiumFabricPages {
+    private static final Logger LOG = LoggerFactory.getLogger("Alloy");
+    static final boolean PAGES = !"false".equals(System.getProperty("alloy.embeddium.fabricPages"));
+    static final boolean REESES_SCREEN = "true".equals(System.getProperty("alloy.embeddium.reesesScreen"));
+    static final String GENERATOR = "org.embeddedt.embeddium.client.gui.options.OptionIdGenerator";
+    static final String IDENTIFIER = "org.embeddedt.embeddium.client.gui.options.OptionIdentifier";
+    static final String EMBEDDIUM_SCREEN = "org.embeddedt.embeddium.gui.EmbeddiumVideoOptionsScreen";
+    static final String REESES_SCREEN_CLASS = "me.flashyreese.mods.reeses_sodium_options.client.gui.SodiumVideoOptionsScreen";
+    /** frames that never own a page: Embeddium and Sodium's own GUI code, the game, the loaders, Alloy, Mixin, the JDK */
+    static final String[] SKIP = {"me.jellysquid.mods.sodium.", "org.embeddedt.embeddium.", "net.minecraft.", "net.minecraftforge.",
+            "net.neoforged.", "net.fabricmc.", "alloy.", "java.", "jdk.", "sun.", "org.spongepowered.", "com.llamalad7.",
+            "com.google.", "it.unimi."};
+    /** Fabric "mods" that are not a page author: the platform, Alloy's own jars */
+    static final Set<String> NOT_MODS = Set.of("java", "minecraft", "fabricloader", "mixinextras", "alloyloader", "alloy", "alloy_modmixins", "alloy_api");
+    /** handler names of mixins merged into a target class: handler$zza000$sodium-extra$init (Fabric adds the mod id) */
+    static final Pattern HANDLER = Pattern.compile("^[a-zA-Z]+\\$[a-z0-9]{6}\\$([a-z][a-z0-9_\\-]{1,63})\\$");
+
+    private static final ClassValue<String> OWNER = new ClassValue<>() {
+        @Override protected String computeValue(Class<?> c) { return fabricOwner(c); }
+    };
+    private static final Set<String> LOGGED = ConcurrentHashMap.newKeySet();
+    private static volatile Method create;
+
+    private EmbeddiumFabricPages() {}
+
+    /** true when the class name is one Embeddium's guesser and this one skip */
+    public static boolean skipped(String name) {
+        for (String p : SKIP) if (name.startsWith(p)) return true;
+        return false;
+    }
+
+    /** the mod id in a merged mixin handler name, or null */
+    public static String handlerMod(String method) {
+        Matcher m = HANDLER.matcher(method);
+        return m.find() ? m.group(1) : null;
+    }
+
+    /** OptionIdentifier(fabricMod, path) for the first Fabric mod class on the stack, or null (Embeddium then uses embeddium:empty) */
+    public static Object guessId(String path) {
+        if (!PAGES) return null;
+        try {
+            Class<?>[] gen = {null};
+            String mod = StackWalker.getInstance(StackWalker.Option.RETAIN_CLASS_REFERENCE).walk(s -> s.map(f -> {
+                Class<?> c = f.getDeclaringClass();
+                String n = c.getName();
+                if (n.equals(GENERATOR)) { if (gen[0] == null) gen[0] = c; return null; }
+                if (skipped(n)) {
+                    // a Fabric mod's injector merged into Sodium's or Embeddium's GUI classes (not into Minecraft's: Fabric
+                    // API's tick hooks there are on every stack)
+                    if (!n.startsWith("me.jellysquid.mods.sodium.client.gui.") && !n.startsWith("org.embeddedt.embeddium.")) return null;
+                    String h = handlerMod(f.getMethodName());
+                    return h != null && !h.startsWith("fabric-") && isFabricMod(h) ? h : null;
+                }
+                String o = OWNER.get(c);
+                return o.isEmpty() ? null : o;
+            }).filter(x -> x != null).findFirst().orElse(null));
+            if (mod == null || gen[0] == null) return null;
+            Method m = create;
+            if (m == null) create = m = Class.forName(IDENTIFIER, false, gen[0].getClassLoader()).getMethod("create", String.class, String.class);
+            Object id = m.invoke(null, mod, path);
+            if (LOGGED.add(mod)) LOG.info("Alloy: Embeddium option pages of the Fabric mod {} go under its own tab (first: {})", mod, path);
+            return id;
+        } catch (Throwable t) {
+            if (LOGGED.add("!error")) LOG.warn("Alloy: could not name the Fabric mod of an Embeddium option page: {}", t.toString());
+            return null;
+        }
+    }
+
+    /** the Fabric mod's name when Forge's ModList did not know the id (Embeddium then returns the id itself), else null */
+    public static String fabricName(String modId, String forgeAnswer) {
+        if (!PAGES || modId == null || (forgeAnswer != null && !forgeAnswer.equals(modId))) return null;
+        try {
+            Optional<ModContainer> mc = FabricLoader.getInstance().getModContainer(modId);
+            if (mc.isEmpty() || mc.get().getMetadata().containsCustomValue("alloy:forge-stub")) return null;
+            return mc.get().getMetadata().getName();
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** Reese's screen about to replace Embeddium's built-in screen (see ReesesScreenCompat120) */
+    public static boolean keepEmbeddiumScreen(Object current, Object next) {
+        if (REESES_SCREEN || current == null || next == null) return false;
+        if (!next.getClass().getName().equals(REESES_SCREEN_CLASS) || !current.getClass().getName().equals(EMBEDDIUM_SCREEN)) return false;
+        if (LOGGED.add("!reeses")) LOG.info("Alloy: keeping Embeddium's video settings screen; Reese's Sodium Options would replace it (-Dalloy.embeddium.reesesScreen=true for Reese's)");
+        return true;
+    }
+
+    static boolean isFabricMod(String id) {
+        try {
+            Optional<ModContainer> mc = FabricLoader.getInstance().getModContainer(id);
+            return mc.isPresent() && !NOT_MODS.contains(id) && !mc.get().getMetadata().containsCustomValue("alloy:forge-stub");
+        } catch (Throwable t) {
+            return false;
+        }
+    }
+
+    /** id of the Fabric mod whose files contain the class, or "" */
+    static String fabricOwner(Class<?> c) {
+        String name = c.getName();
+        int lambda = name.indexOf("$$");
+        if (lambda > 0) name = name.substring(0, lambda);
+        String entry = name.replace('.', '/') + ".class";
+        try {
+            for (ModContainer mc : FabricLoader.getInstance().getAllMods()) {
+                var md = mc.getMetadata();
+                String id = md.getId();
+                if (NOT_MODS.contains(id) || id.startsWith("fabric-") || md.containsCustomValue("alloy:forge-stub")) continue;
+                if (mc.findPath(entry).isPresent()) return id;
+            }
+        } catch (Throwable ignored) {
+        }
+        return "";
+    }
+}

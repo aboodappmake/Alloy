@@ -1,0 +1,38 @@
+package alloy.compat121support.sodium;
+
+import net.caffeinemc.mods.sodium.client.world.LevelSlice;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.SectionPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelDataManager;
+
+import java.util.Collections;
+import java.util.Map;
+
+/**
+ * What Sodium's LevelSlice returns for Forge's IForgeBlockGetter.getModelDataManager() (R11). Mods read neighbour data in
+ * BakedModel.getModelData(level, pos, ...) through it. It answers from the slice's own copy (taken on the main thread when
+ * the sections were cloned), so nothing on the mesher thread touches the live manager.
+ */
+public final class SnapshotModelDataManager121 extends ModelDataManager {
+    private final LevelSlice slice;
+
+    public SnapshotModelDataManager121(Level level, LevelSlice slice) {
+        super(level);
+        this.slice = slice;
+    }
+
+    @Override public void requestRefresh(BlockEntity be) { }
+
+    @Override public ModelData getAt(BlockPos pos) {
+        ModelData d = ForgeModelData121.unwrap(slice.getPlatformModelData(pos));
+        return d == ModelData.EMPTY ? null : d;   // null when absent, like Forge
+    }
+
+    @Override public Map<BlockPos, ModelData> getAt(SectionPos pos) { return Collections.emptyMap(); }
+
+    @Override public Map<BlockPos, ModelData> getAt(ChunkPos pos) { return Collections.emptyMap(); }
+}

@@ -1,0 +1,24 @@
+package alloy.compat120.kubejs;
+
+import alloy.compat120support.kubejs.KubeJSFabricMods;
+import java.util.Map;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * KubeJS scripts ask {@code Platform.isLoaded(id)} / {@code Platform.mods} through PlatformWrapper, which only lists
+ * Architectury's mods, that is Forge's ModList. On Alloy the Fabric mods are not in it, so pack scripts that guard a
+ * Fabric mod's section with isLoaded skipped it. This adds the Fabric mods to the script view only. Forge's ModList
+ * and Architectury's Platform stay as they are, so Forge mods still never think a Fabric mod's Forge build is present.
+ */
+@Pseudo
+@Mixin(targets = "dev.latvian.mods.kubejs.script.PlatformWrapper", remap = false)
+public abstract class PlatformWrapperCompat120 {
+    @Inject(method = "getMods", at = @At("RETURN"), remap = false, require = 0)
+    private static void alloy$addFabricMods(CallbackInfoReturnable<Map<String, Object>> cir) {
+        KubeJSFabricMods.addTo(cir.getReturnValue());
+    }
+}

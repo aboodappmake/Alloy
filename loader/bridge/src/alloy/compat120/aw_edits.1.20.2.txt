@@ -1,0 +1,12 @@
+# Access widener changes for Fabric API 0.91.6+1.20.2 on Forge 48.1.0 (same reasons as aw_edits.1.20.4.txt).
+# drop <tokens>            remove every AW line that starts with these tokens (Mojang names, after the name translator)
+# add <aw file> <tokens>   add a line to that AW file
+#
+# Forge's coremod field_to_method.js redirects Biome.climateSettings reads to getModifiedClimateSettings() and refuses to run
+# ("Field climateSettings is not private") once Fabric's biome AW has widened the field. Feature lost: Fabric biome weather
+# modifications that write the field directly.
+drop accessible field net/minecraft/world/level/biome/Biome climateSettings
+drop mutable field net/minecraft/world/level/biome/Biome climateSettings
+# Ingredient.toNetwork: Forge's patch makes it final and Fabric's CustomIngredientImpl overrides it (vanilla: not final).
+# Forge's own AT also says public+f and runs after the access wideners, so launch120.py drops that +f too (FORGE_AT_EDITS).
+add fabric-recipe-api-v1.accesswidener extendable method net/minecraft/world/item/crafting/Ingredient toNetwork (Lnet/minecraft/network/FriendlyByteBuf;)V

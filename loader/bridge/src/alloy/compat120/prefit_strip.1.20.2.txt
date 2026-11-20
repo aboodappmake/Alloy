@@ -1,0 +1,121 @@
+# Fabric API injectors that cannot apply on 1.20.2 Forge. Same format as compat_replaces.txt (config:mixin#handler).
+# Found with an offline mixin check against the Forge game jar, then checked in boots.
+# offline check rounds (fit120.py, 4 report(s)):
+fabric-particles-v1.client.mixins.json:ParticleManagerAccessor
+fabric-registry-sync-v0.client.mixins.json:BlockColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ItemColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ParticleManagerMixin
+#alloy: restored by color/BlockColorsCompat120
+fabric-rendering-v1.mixins.json:BlockColorsMixin
+#alloy: end-restored
+#alloy: restored by color/ItemColorsCompat120
+fabric-rendering-v1.mixins.json:ItemColorsMixin
+#alloy: end-restored
+fabric-rendering-v1.mixins.json:shader.ShaderProgramMixin
+fabric-renderer-indigo.mixins.json:ChunkBuilderBuiltChunkRebuildTaskMixin#hookChunkBuildTessellate
+fabric-model-loading-api-v1.mixins.json:ModelLoaderBakerImplMixin#invokeModifyAfterBake
+fabric-model-loading-api-v1.mixins.json:ModelLoaderBakerImplMixin#invokeModifyBeforeBake
+fabric-particles-v1.client.mixins.json:BlockDustParticleMixin#removeUntintableParticles
+#alloy: restored by gui/AfterTranslucentCompat120
+fabric-rendering-v1.mixins.json:WorldRendererMixin#onRenderParticles
+#alloy: end-restored
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#getOverlayBlock
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#modSideSpriteForOverlay
+fabric-rendering-v1.mixins.json:shader.ShaderProgramImportProcessorMixin#modifyImportId
+fabric-sound-api-v1.mixins.json:SoundSystemMixin#getStream
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#canUseAsFuelRedirect
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#getFuelTimeRedirect
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin#addReplaced
+fabric-dimensions-v1.mixins.json:EntityMixin#stopEndSpecificBehavior
+fabric-dimensions-v1.mixins.json:RegistryCodecsMixin#modifyCodecLocalVariable
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyWakeUpPosition
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onIsSleepingInBed
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#setOccupiedState
+fabric-entity-events-v1.mixins.json:PlayerEntityMixin#redirectDaySleepCheck
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#onTrySleepDirectionCheck
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#redirectDaySleepCheck
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#breakBlock
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#onBlockBroken
+#alloy: restored by interaction/UseEntityClientCompat120
+fabric-events-interaction-v0.client.mixins.json:MinecraftClientMixin#injectUseEntityCallback
+#alloy: end-restored
+fabric-lifecycle-events-v1.client.mixins.json:WorldChunkMixin#onRemoveBlockEntity
+fabric-item-api-v1.mixins.json:AbstractFurnaceBlockEntityMixin#setStackRemainder
+fabric-item-api-v1.mixins.json:BrewingStandBlockEntityMixin#hasStackRecipeRemainder
+fabric-item-api-v1.mixins.json:ItemStackMixin#hookGetAttributeModifiers
+fabric-item-api-v1.mixins.json:ItemStackMixin#hookIsSuitableFor
+fabric-item-api-v1.mixins.json:RecipeMixin#hasStackRemainder
+fabric-item-api-v1.mixins.json:RecipeMixin#replaceGetRecipeRemainder
+fabric-registry-sync-v0.mixins.json:StructuresToConfiguredStructuresFixMixin#findUpdatedStructureType
+fabric-renderer-api-v1.mixins.json:client.OverlayVertexConsumerMixin#redirectGetFacing
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onAfterRenderScreen
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onBeforeRenderScreen
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyPressedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyReleasedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyPressedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyReleasedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#afterScreenTick
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#beforeScreenTick
+#alloy: end-restored
+fabric-transfer-api-v1.mixins.json:HopperBlockEntityMixin#hookExtract
+# by hand: only the variable modifier in Connection.disconnect fails (Forge's patch), not the whole networking mixin
+fabric-networking-api-v1.mixins.json:ClientConnectionMixin#disconnectAddon
+# by hand, as on 1.20.1/1.20.4: Fabric's client start hook calls BuiltInRegistries.bootStrap() again, which freezes every
+# built-in registry while Forge mods are still loading (Balm 8 registers its placement modifier in common setup and the
+# game stopped with "Registry is already frozen"). Forge freezes them itself at FREEZE_DATA. Lost: Fabric's late
+# BlockInitTracker pass and its CreativeModeTabs.validate().
+fabric-registry-sync-v0.client.mixins.json:MinecraftClientMixin#onStart
+# servers121 dry boots: the server half's Map.remove redirect finds no target on Forge 48 (lenient skip on every server boot);
+# server block entity unload from a chunk is off, as it already was
+fabric-lifecycle-events-v1.mixins.json:server.WorldChunkMixin#onRemoveBlockEntity
+# reg05 offline check: Architectury (Fabric) client.MixinEffectInstance#mojangPls redirects the ResourceLocation that
+# EffectInstance's constructor builds, so shader names with a mod namespace load. Forge 48 does the same itself
+# (ResourceLocation.tryParse, then the namespace is kept), so the redirect finds no target and the critical injection
+# failure stopped EffectInstance from loading. Nothing is lost: Forge's code loads modded effect shaders.
+architectury.mixins.json:client.MixinEffectInstance#mojangPls
+# reg05 dry boots: Architectury (Fabric) MixinCatSpawner#checkCatSpawn (an inject that captures the Cat local in
+# CatSpawner.spawnCat) fails its injection check on this Forge (Scanned 0 targets; on 1.21.1 javap still shows the
+# Cat.finalizeSpawn call, so the captured locals differ), and every boot dropped the mixin leniently.
+# Lost: Architectury's LIVING_CHECK_SPAWN for village and swamp hut cats (Forge's spawn events still fire).
+architectury.mixins.json:MixinCatSpawner#checkCatSpawn
+# Sodium 0.5.5+mc1.20.2 on Forge 48 (sodium1202, the fitter found the same at install): the four Sodium 0.5.8 has on Forge 49
+# (window hints, sprite mipmap call, the 3-argument getQuads of multipart/weighted models) plus the glfwCreateWindow
+# workaround, and Forge 48's SectionRenderDispatcher constructor has no Lists.newArrayListWithExpectedSize call, so Sodium's
+# thread pool size hook has no target. Lost: nothing while Sodium meshes the chunks itself (its own builder threads).
+sodium.mixins.json:core.WindowMixin#setAdditionalWindowHints
+sodium.mixins.json:features.textures.mipmaps.SpriteContentsMixin#sodium$beforeGenerateMipLevels
+sodium.mixins.json:features.model.MultipartBakedModelMixin
+sodium.mixins.json:features.model.WeightedBakedModelMixin
+sodium.mixins.json:workarounds.context_creation.WindowMixin#wrapGlfwCreateWindow
+sodium.mixins.json:core.render.world.ChunkBuilderMixin#modifyThreadPoolSize
+# Iris 1.6.14 on Forge 48 (sodium1202), the same block as Iris 1.7 on 1.20.1/1.20.4; the compat's Iris mixins do the window
+# hint, particle phases and armor ids on Forge's targets (SodiumPlugin120, with Iris installed).
+# Window: Forge creates the window in its early display code, there is no glfwCreateWindow call for Iris's debug context.
+mixins.iris.json:MixinWindow#iris$enableDebugContext
+# Particle phases: Forge 48 renders particles through its own ParticleEngine.render with a Frustum. All four parts of
+# Iris's phase split go together (the fitter alone retargeted only one of them, which would mix Iris's and Alloy's
+# phases); sodium/mixin/IrisParticlesMixin120 and IrisParticleEngineMixin120 do the split on Forge's methods.
+mixins.iris.fantastic.json:MixinLevelRenderer#iris$renderTranslucentAfterDeferred
+mixins.iris.fantastic.json:MixinLevelRenderer#iris$renderOpaqueParticles
+mixins.iris.fantastic.json:MixinParticleEngine#iris$changeParticleShader
+mixins.iris.fantastic.json:MixinParticleEngine#iris$selectParticlesToRender
+# Vanilla chunk rebuild task (Forge calls a different compile path). Unused while Sodium meshes the chunks.
+mixins.iris.vertexformat.json:block_rendering.MixinChunkRebuildTask#iris$onRenderBlock
+mixins.iris.vertexformat.json:block_rendering.MixinChunkRebuildTask#iris$finishRenderingBlock
+# Armor: Forge's renderArmorPiece has other locals; sodium/mixin/IrisArmorMixin120 sets the armor item id instead.
+mixins.iris.json:entity_render_context.MixinHumanoidArmorLayer#changeId

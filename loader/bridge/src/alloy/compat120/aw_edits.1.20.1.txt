@@ -1,0 +1,26 @@
+# Access widener changes for Fabric API 0.92.12+1.20.1 on Forge 47.4.29 (adapt_fabric.py FF_AW_EDITS, used by launch120.py mods).
+# drop <tokens>            remove every AW line that starts with these tokens (Mojang names, after the name translator)
+# add <aw file> <tokens>   add a line to that AW file
+#
+# Forge's coremod field_to_method.js redirects Biome.climateSettings reads to getModifiedClimateSettings() and refuses to run
+# ("Field climateSettings is not private") once Fabric's biome AW has widened the field. Feature lost: Fabric biome weather
+# modifications that write the field directly. Restored by biome.BiomeWeatherCompat120: Fabric's reads and writes of the
+# field go to Forge's ModifiableBiomeInfo, which is what Forge's Biome reads.
+drop accessible field net/minecraft/world/level/biome/Biome climateSettings
+drop mutable field net/minecraft/world/level/biome/Biome climateSettings
+# Ingredient.toNetwork: Forge's patch makes it final and Fabric's CustomIngredientImpl overrides it (vanilla: not final).
+# Forge's own AT also says public+f and runs after the access wideners, so launch120.py drops that +f too (FORGE_AT_EDITS).
+add fabric-recipe-api-v1.accesswidener extendable method net/minecraft/world/item/crafting/Ingredient toNetwork (Lnet/minecraft/network/FriendlyByteBuf;)V
+# Same coremod, StairBlock.base -> getModelBlock(): Axiom 6.1.5 widens StairBlock.base and Forge then refuses the redirect
+# ("Field base is not private"), so stairs built from a Supplier (most Forge mods' stairs) would read an empty base block.
+# Lost: Axiom's Tinker tool and datagen read the field directly (IllegalAccessError if those paths run).
+drop accessible field net/minecraft/world/level/block/StairBlock base
+# Same coremod, Structure.settings -> getModifiedStructureSettings() (Forge structure modifiers): FrozenLib 1.9.3 and Wilder Wild
+# 3.0.7 widen the field and Forge then refuses the redirect ("Field settings is not private"). Neither reads it directly.
+drop transitive-accessible field net/minecraft/world/level/levelgen/structure/Structure settings
+drop accessible field net/minecraft/world/level/levelgen/structure/Structure settings
+# call <owner> <name> <oldDesc> <newDesc>: Forge added trailing parameters to a game method; Fabric mods' calls pass null.
+# Forge 47's LootPool constructor takes the pool name last (null is what LootPool.Builder passes without a name). BCLib's
+# LootPoolMixin builds merged pools with the vanilla 5-argument constructor: NoSuchMethodError "ERROR building loot table",
+# so BetterNether's piglin bartering table was missing. The call sits in a mixin merged into LootPool, so no AW is needed.
+call net/minecraft/world/level/storage/loot/LootPool <init> ([Lnet/minecraft/world/level/storage/loot/entries/LootPoolEntryContainer;[Lnet/minecraft/world/level/storage/loot/predicates/LootItemCondition;[Lnet/minecraft/world/level/storage/loot/functions/LootItemFunction;Lnet/minecraft/world/level/storage/loot/providers/number/NumberProvider;Lnet/minecraft/world/level/storage/loot/providers/number/NumberProvider;)V ([Lnet/minecraft/world/level/storage/loot/entries/LootPoolEntryContainer;[Lnet/minecraft/world/level/storage/loot/predicates/LootItemCondition;[Lnet/minecraft/world/level/storage/loot/functions/LootItemFunction;Lnet/minecraft/world/level/storage/loot/providers/number/NumberProvider;Lnet/minecraft/world/level/storage/loot/providers/number/NumberProvider;Ljava/lang/String;)V

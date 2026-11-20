@@ -49,3 +49,22 @@ INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, WHETHER IN
 CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE)
 ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF ADVISED OF
 THE POSSIBILITY OF SUCH DAMAGE.
+
+------------------------------------------------------------------------------------
+Third-party code bundled in the Windows exe
+------------------------------------------------------------------------------------
+
+Alloy-Installer-VERSION.exe carries a trimmed Java runtime made with jlink from an
+OpenJDK 25 build (for example Eclipse Temurin, https://adoptium.net).
+OpenJDK is licensed under the GNU General Public License, version 2, with the
+Classpath Exception. The runtime's own license and notice files are inside it,
+in the legal/ folder of the unpacked runtime. Source: https://openjdk.org
+
+------------------------------------------------------------------------------------
+Source in this repository
+------------------------------------------------------------------------------------
+
+Everything under loader/ is Alloy's own code, under Apache-2.0. It contains no
+Minecraft, Mojang, Forge or Fabric code. The bridge and the compat code reference
+Minecraft, Forge, Fabric and Sodium class names so they can hook into them at run
+time; those projects are downloaded by the installer or installed by the player.

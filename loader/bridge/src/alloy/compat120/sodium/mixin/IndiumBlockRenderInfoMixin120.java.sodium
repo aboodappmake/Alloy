@@ -1,0 +1,33 @@
+package alloy.compat120.sodium.mixin;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.client.ChunkRenderTypeSet;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.injection.At;
+
+import java.util.Iterator;
+
+/**
+ * R1 for Indium (FRAPI models in terrain, for example a Fabric mod wrapping a Forge model). Indium picks the default layer
+ * with ItemBlockRenderTypes.getChunkRenderType, which on Forge 47 does not see layers set with Forge's setRenderLayer.
+ * If that says solid, use the first of Forge's render layers for the block instead. Only added when Indium is installed.
+ */
+@Pseudo
+@Mixin(targets = "link.infra.indium.renderer.render.BlockRenderInfo", remap = false)
+public abstract class IndiumBlockRenderInfoMixin120 {
+    @WrapOperation(method = "prepareForBlock(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;JZ)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/ItemBlockRenderTypes;getChunkRenderType(Lnet/minecraft/world/level/block/state/BlockState;)Lnet/minecraft/client/renderer/RenderType;"))
+    private RenderType alloy$forgeDefaultLayer(BlockState state, Operation<RenderType> original) {
+        RenderType legacy = original.call(state);
+        if (legacy != RenderType.solid()) return legacy;
+        ChunkRenderTypeSet set = ItemBlockRenderTypes.getRenderLayers(state);
+        if (set == null) return legacy;
+        Iterator<RenderType> it = set.iterator();
+        return it.hasNext() ? it.next() : legacy;
+    }
+}

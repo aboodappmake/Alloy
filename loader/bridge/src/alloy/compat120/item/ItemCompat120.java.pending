@@ -1,0 +1,124 @@
+package alloy.compat120.item;
+
+import com.google.common.collect.LinkedHashMultimap;
+import com.google.common.collect.Multimap;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import net.fabricmc.fabric.api.item.v1.FabricItem;
+import net.fabricmc.fabric.api.item.v1.ModifyItemAttributeModifiersCallback;
+import net.minecraft.world.entity.EquipmentSlot;
+import net.minecraft.world.entity.ai.attributes.Attribute;
+import net.minecraft.world.entity.ai.attributes.AttributeModifier;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.block.state.BlockState;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): the stack-aware FabricItem hooks of fabric-item-api-v1 on Forge's item code.
+ *
+ * <p>FabricItem (0.92) has {@code getRecipeRemainder(ItemStack)}, {@code getAttributeModifiers(ItemStack, EquipmentSlot)} and
+ * {@code isSuitableFor(ItemStack, BlockState)}. Fabric reaches them by redirecting vanilla calls that Forge 47 replaced with
+ * its own stack-aware IForgeItem methods, so these Fabric injectors find nothing (static check, BROKEN):
+ * RecipeMixin#hasStackRemainder / #replaceGetRecipeRemainder, BrewingStandBlockEntityMixin#hasStackRecipeRemainder,
+ * ItemStackMixin#hookGetAttributeModifiers / #hookIsSuitableFor.
+ *
+ * <p>Plan: disable Fabric's RecipeMixin, BrewingStandBlockEntityMixin and (item-api) AbstractFurnaceBlockEntityMixin as a whole
+ * (their remaining injectors would write Fabric's vanilla-style remainder over Forge's stack-aware one), strip the two
+ * ItemStackMixin injectors, and load these mixins. They feed Forge's own methods, so every Forge call site (crafting,
+ * furnace fuel, brewing, Forge mods) sees Fabric overrides:
+ * <ul>
+ *   <li>{@link ItemRemainder}: Item gets concrete {@code getCraftingRemainingItem(ItemStack)} and
+ *       {@code hasCraftingRemainingItem(ItemStack)} (they replace IForgeItem's defaults; Forge subclasses that override them
+ *       still win). When the item's class overrides FabricItem#getRecipeRemainder, Fabric's answer is used, otherwise
+ *       Forge's default body (copied from IForgeItem 47.4.29) runs.</li>
+ *   <li>{@link StackHooks}: ItemStack.getAttributeModifiers(EquipmentSlot) calls {@code Item.getAttributeModifiers(EquipmentSlot,
+ *       ItemStack)} (Forge) and ItemStack.isCorrectToolForDrops(BlockState) calls {@code Item.isCorrectToolForDrops(ItemStack,
+ *       BlockState)} (Forge). Each call is wrapped: an item class that overrides the FabricItem method gets Fabric's answer,
+ *       others keep Forge's. ModifyItemAttributeModifiersCallback fires on a mutable copy, as in Fabric, and Forge's
+ *       ItemAttributeModifierEvent (ForgeHooks.getAttributeModifiers) still runs after it on the result.</li>
+ * </ul>
+ * Verified call sites (forge-1.20.1-47.4.29 client, Mojang names): Recipe.getRemainingItems, BrewingStandBlockEntity.doBrew and
+ * AbstractFurnaceBlockEntity.serverTick call ItemStack.hasCraftingRemainingItem() / getCraftingRemainingItem() (IForgeItemStack,
+ * which calls the Item methods with the stack).
+ * Override detection uses reflection once per item class (cached). An item that implements FabricItem's method by
+ * inheriting it from a Forge-side superclass is treated like any override.
+ */
+public final class ItemCompat120 {
+    private ItemCompat120() {}
+
+    @Mixin(value = Item.class, remap = false)
+    public abstract static class ItemRemainder {
+        @Unique private static final Map<Class<?>, Boolean> alloy$fabricRemainder = new ConcurrentHashMap<>();
+
+        @Unique
+        private static boolean alloy$overridesRemainder(Class<?> c) {
+            return alloy$fabricRemainder.computeIfAbsent(c, k -> {
+                try {
+                    return k.getMethod("getRecipeRemainder", ItemStack.class).getDeclaringClass() != FabricItem.class;
+                } catch (NoSuchMethodException e) {
+                    return false;
+                }
+            });
+        }
+
+        /** Replaces IForgeItem#getCraftingRemainingItem(ItemStack) on Item. */
+        public ItemStack getCraftingRemainingItem(ItemStack stack) {
+            Item self = (Item) (Object) this;
+            if (alloy$overridesRemainder(self.getClass())) return ((FabricItem) self).getRecipeRemainder(stack);
+            return !self.hasCraftingRemainingItem(stack) ? ItemStack.EMPTY : new ItemStack(self.getCraftingRemainingItem());
+        }
+
+        /** Replaces IForgeItem#hasCraftingRemainingItem(ItemStack) on Item. */
+        public boolean hasCraftingRemainingItem(ItemStack stack) {
+            Item self = (Item) (Object) this;
+            if (alloy$overridesRemainder(self.getClass())) return !((FabricItem) self).getRecipeRemainder(stack).isEmpty();
+            return self.hasCraftingRemainingItem();
+        }
+    }
+
+    @Mixin(value = ItemStack.class, remap = false)
+    public abstract static class StackHooks {
+        @Unique private static final Map<Class<?>, Boolean> alloy$fabricAttributes = new ConcurrentHashMap<>();
+        @Unique private static final Map<Class<?>, Boolean> alloy$fabricSuitable = new ConcurrentHashMap<>();
+
+        @Unique
+        private static boolean alloy$overrides(Map<Class<?>, Boolean> cache, Class<?> c, String name, Class<?>... params) {
+            return cache.computeIfAbsent(c, k -> {
+                try {
+                    return k.getMethod(name, params).getDeclaringClass() != FabricItem.class;
+                } catch (NoSuchMethodException e) {
+                    return false;
+                }
+            });
+        }
+
+        @WrapOperation(method = "getAttributeModifiers(Lnet/minecraft/world/entity/EquipmentSlot;)Lcom/google/common/collect/Multimap;", remap = false,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraft/world/item/Item;getAttributeModifiers(Lnet/minecraft/world/entity/EquipmentSlot;Lnet/minecraft/world/item/ItemStack;)Lcom/google/common/collect/Multimap;"))
+        private Multimap<Attribute, AttributeModifier> alloy$fabricAttributeModifiers(Item item, EquipmentSlot slot, ItemStack stack,
+                                                                                      Operation<Multimap<Attribute, AttributeModifier>> original) {
+            Multimap<Attribute, AttributeModifier> base =
+                    alloy$overrides(alloy$fabricAttributes, item.getClass(), "getAttributeModifiers", ItemStack.class, EquipmentSlot.class)
+                            ? ((FabricItem) item).getAttributeModifiers(stack, slot)
+                            : original.call(item, slot, stack);
+            Multimap<Attribute, AttributeModifier> modifiers = LinkedHashMultimap.create(base);
+            ModifyItemAttributeModifiersCallback.EVENT.invoker().modifyAttributeModifiers(stack, slot, modifiers);
+            return modifiers;
+        }
+
+        @WrapOperation(method = "isCorrectToolForDrops(Lnet/minecraft/world/level/block/state/BlockState;)Z", remap = false,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraft/world/item/Item;isCorrectToolForDrops(Lnet/minecraft/world/item/ItemStack;Lnet/minecraft/world/level/block/state/BlockState;)Z"))
+        private boolean alloy$fabricIsSuitableFor(Item item, ItemStack stack, BlockState state, Operation<Boolean> original) {
+            if (alloy$overrides(alloy$fabricSuitable, item.getClass(), "isSuitableFor", ItemStack.class, BlockState.class)) {
+                return ((FabricItem) item).isSuitableFor(stack, state);
+            }
+            return original.call(item, stack, state);
+        }
+    }
+}

@@ -1,0 +1,50 @@
+package alloy.compat120.net;
+
+import java.lang.reflect.Field;
+import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
+import net.minecraft.network.Connection;
+import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/** Debug only (-Dalloy.netdebug=true): logs every login query the client gets, with the thread and Forge's handler state. */
+@Mixin(value = ClientHandshakePacketListenerImpl.class, remap = false)
+public abstract class ClientLoginProbe120 {
+    @Unique private static final boolean ALLOY$ON = Boolean.getBoolean("alloy.netdebug");
+    @Unique private static final Logger ALLOY$LOG = LoggerFactory.getLogger("Alloy");
+
+    @Shadow @Final private Connection connection;
+
+    @Inject(method = "handleCustomQuery", at = @At("HEAD"), require = 0)
+    private void alloy$in(ClientboundCustomQueryPacket p, CallbackInfo ci) {
+        if (ALLOY$ON) ALLOY$LOG.info("Alloy netdebug: client query {} {} on {} autoRead={} forgeHandler={}", p.getTransactionId(),
+                p.getIdentifier(), Thread.currentThread().getName(), connection.channel().config().isAutoRead(), alloy$handler());
+    }
+
+    @Inject(method = "handleCustomQuery", at = @At("RETURN"), require = 0)
+    private void alloy$out(ClientboundCustomQueryPacket p, CallbackInfo ci) {
+        if (ALLOY$ON) ALLOY$LOG.info("Alloy netdebug: client query {} done", p.getTransactionId());
+    }
+
+    @Unique
+    private String alloy$handler() {
+        try {
+            Field kf = Class.forName("net.minecraftforge.network.NetworkConstants").getDeclaredField("FML_HANDSHAKE_HANDLER");
+            kf.setAccessible(true);
+            Object h = connection.channel().attr((io.netty.util.AttributeKey<?>) kf.get(null)).get();
+            if (h == null) return "none";
+            Field d = h.getClass().getDeclaredField("direction");
+            d.setAccessible(true);
+            return String.valueOf(d.get(h));
+        } catch (Throwable t) {
+            return "? " + t;
+        }
+    }
+}

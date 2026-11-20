@@ -1,0 +1,22 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.BlockRenderContextExt120;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraftforge.client.model.data.ModelData;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+
+/** R1 + R2: the render type and ModelData of the current renderModel call (set by SodiumForge120.renderModel). */
+@Mixin(value = BlockRenderContext.class, remap = false)
+public abstract class BlockRenderContextMixin120 implements BlockRenderContextExt120 {
+    @Unique private RenderType alloy$renderType;
+    @Unique private ModelData alloy$modelData = ModelData.EMPTY;
+
+    @Override public void alloy$set(RenderType type, ModelData data) {
+        this.alloy$renderType = type;
+        this.alloy$modelData = data == null ? ModelData.EMPTY : data;
+    }
+    @Override public RenderType alloy$renderType() { return this.alloy$renderType; }
+    @Override public ModelData alloy$modelData() { return this.alloy$modelData; }
+}

@@ -1,0 +1,58 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.SodiumForge120;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import me.jellysquid.mods.sodium.client.render.chunk.RenderSection;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildBuffers;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.tasks.ChunkBuilderMeshingTask;
+import me.jellysquid.mods.sodium.client.world.cloned.ChunkRenderContext;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderDispatcher;
+import net.minecraft.client.renderer.blockentity.BlockEntityRenderer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.client.model.data.ModelData;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Collections;
+import java.util.Map;
+
+/**
+ * R1 + R2 + R3 in Sodium's section mesher.
+ *
+ * <p>Iris 1.7.6 captures the locals of execute with CAPTURE_FAILHARD and Indium @Redirects the renderModel call, so this
+ * only uses @WrapOperation on calls in execute (no new locals, no @ModifyVariable, no second @Redirect). State lives in
+ * @Unique fields of the task and of BlockRenderContext.
+ */
+@Mixin(value = ChunkBuilderMeshingTask.class, remap = false)
+public abstract class MeshingTaskMixin120 {
+    @Unique private Map<BlockPos, ModelData> alloy$modelData = Collections.emptyMap();
+
+    /** R2: tasks are made on the main thread (RenderSectionManager); take the section's ModelData here. */
+    @Inject(method = "<init>(Lme/jellysquid/mods/sodium/client/render/chunk/RenderSection;Lme/jellysquid/mods/sodium/client/world/cloned/ChunkRenderContext;I)V",
+            at = @At("RETURN"))
+    private void alloy$snapshotModelData(RenderSection render, ChunkRenderContext context, int time, CallbackInfo ci) {
+        this.alloy$modelData = SodiumForge120.snapshot(render.getOriginX(), render.getOriginY(), render.getOriginZ());
+    }
+
+    /** R1 + R2: one renderModel per Forge render type, with ModelData. */
+    @WrapOperation(method = "execute(Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildContext;Lme/jellysquid/mods/sodium/client/util/task/CancellationToken;)Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildOutput;",
+            at = @At(value = "INVOKE", target = "Lme/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderer;renderModel(Lme/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderContext;Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildBuffers;)V"))
+    private void alloy$perRenderType(BlockRenderer renderer, BlockRenderContext ctx, ChunkBuildBuffers buffers, Operation<Void> original) {
+        SodiumForge120.renderModel(renderer, ctx, buffers, original, this.alloy$modelData);
+    }
+
+    /** R3: Flywheel (Create) visualizes chunk block entities; a port of Flywheel's own Fabric Sodium 0.5 mixin. */
+    @WrapOperation(method = "execute(Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildContext;Lme/jellysquid/mods/sodium/client/util/task/CancellationToken;)Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildOutput;",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/blockentity/BlockEntityRenderDispatcher;getRenderer(Lnet/minecraft/world/level/block/entity/BlockEntity;)Lnet/minecraft/client/renderer/blockentity/BlockEntityRenderer;"))
+    private BlockEntityRenderer<?> alloy$flywheel(BlockEntityRenderDispatcher dispatcher, BlockEntity be, Operation<BlockEntityRenderer<?>> original) {
+        if (SodiumForge120.flywheelTakes(be)) return null;
+        return original.call(dispatcher, be);
+    }
+}

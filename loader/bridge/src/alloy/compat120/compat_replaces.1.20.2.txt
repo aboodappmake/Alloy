@@ -1,0 +1,18 @@
+# Fabric API mixins that an alloy.compat120 mixin fully re-implements on 1.20.2.
+# Forge's patch renames the captured locals of the interact handler (ServerGamePacketListenerImpl$1), as on 1.20.1
+fabric-events-interaction-v0.mixins.json:ServerPlayNetworkHandlerMixin@field:val$target=val$entity
+# replaced by compat120 registry/WorldLoaderCompat120 (Forge's data pack registry list plus Fabric's)
+fabric-registry-sync-v0.mixins.json:SaveLoadingMixin
+# Creative tabs: Forge is the only pager. Fabric's creative screen filters and arrows are stripped and gui.CreativeTabPagesCompat120
+# sets every tab's Fabric page to Forge's page index (1.20.1/1.20.2: nothing else fills it, the screen crashed "Item group has no page")
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#init
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#setSelectedTab
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#renderTabTooltipIfHovered
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#isClickInTab
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#renderTabIcon
+# Iris 1.6.14 (the last 1.20.2 build), as Iris 1.7 on 1.20.1/1.20.4: Forge 48's ShaderInstance(ResourceProvider, String,
+# VertexFormat) only calls the ResourceLocation constructor, so Iris's two hooks have nothing to hit.
+# sodium/mixin/IrisShaderInstanceMixin120 does both on Forge's constructor (Iris 1.6 names its geometry hook
+# iris$createGeometryShader; IrisShader120 calls whichever the shader has).
+mixins.iris.json:MixinShaderInstance#iris$redirectBindAttributeLocation
+mixins.iris.json:MixinShaderInstance#iris$setupGeometryShader

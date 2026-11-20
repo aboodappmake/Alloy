@@ -1,0 +1,39 @@
+package alloy.compat120.particle;
+
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import java.util.Map;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.resources.ResourceLocation;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): fabric-particles-v1 client ParticleManagerAccessor#getFactories on Forge's ParticleEngine.
+ *
+ * <p>Vanilla keys particle providers by raw registry id ({@code Int2ObjectMap providers}); Forge 47 keys them by
+ * ResourceLocation ({@code Map<ResourceLocation, ParticleProvider<?>> providers}), so Fabric's accessor finds no field.
+ * adapt_fabric.py points the accessor at {@code alloy$providersById} (see LootTableCompat120 for why it cannot be disabled):
+ * a raw-id view of Forge's map. Fabric's ParticleFactoryRegistryImpl only calls {@code getFactories().put(rawId, provider)}.
+ */
+@Mixin(value = ParticleEngine.class, remap = false)
+public abstract class ParticleEngineCompat120 {
+    @Shadow @Final private Map<ResourceLocation, ParticleProvider<?>> providers;
+    private Int2ObjectMap<ParticleProvider<?>> alloy$providersById;
+
+    // registerProviders runs inside the constructor, and Fabric's particle registry (Falling Leaves, Visuality) writes through
+    // the accessor from its RETURN hook there, so the view must exist before that (an <init> RETURN inject was too late: NPE).
+    @Inject(method = "registerProviders", at = @At("HEAD"))
+    private void alloy$idViewEarly(CallbackInfo ci) { alloy$view(); }
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void alloy$idView(CallbackInfo ci) { alloy$view(); }
+
+    private void alloy$view() {
+        if (alloy$providersById == null && providers != null) alloy$providersById = new alloy.compat120support.ParticleIdMap(providers);
+    }
+}

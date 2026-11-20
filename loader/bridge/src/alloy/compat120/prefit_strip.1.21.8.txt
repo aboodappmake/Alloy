@@ -1,0 +1,50 @@
+# Fabric API injectors that cannot apply on 1.21.8 Forge. Same format as compat_replaces.txt (config:mixin#handler).
+# Found with an offline mixin check against the Forge game jar, then checked in boots.
+# offline check rounds (fit120.py, 8 report(s)):
+fabric-data-generation-api-v1.mixins.json:ProvidedTagBuilderMixin
+fabric-data-generation-api-v1.mixins.json:ProvidedTagBuilderMixin$ProvidedTagBuilder1Mixin
+fabric-data-generation-api-v1.mixins.json:ProvidedTagBuilderMixin$ProvidedTagBuilder2Mixin
+fabric-data-generation-api-v1.mixins.json:TagBuilderMixin
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin
+fabric-registry-sync-v0.client.mixins.json:BlockColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ParticleManagerMixin
+fabric-renderer-api-v1.mixins.json:client.sprite.BakedModelManager1Mixin
+fabric-rendering-v1.mixins.json:BlockColorsMixin
+fabric-renderer-indigo.mixins.json:BlockRenderManagerMixin#afterGetModel
+fabric-renderer-indigo.mixins.json:BlockRenderManagerMixin#renderProxy
+fabric-particles-v1.client.mixins.json:BlockDustParticleMixin#removeUntintableParticles
+fabric-rendering-v1.mixins.json:ArmorFeatureRendererMixin#renderArmor
+fabric-rendering-v1.mixins.json:WorldRendererMixin#afterEntities
+fabric-rendering-v1.mixins.json:WorldRendererMixin#afterTerrainSolid
+fabric-rendering-v1.mixins.json:WorldRendererMixin#beforeDebugRender
+fabric-rendering-v1.mixins.json:WorldRendererMixin#beforeRenderOutline
+fabric-rendering-v1.mixins.json:WorldRendererMixin#beforeTerrainSolid
+fabric-rendering-v1.mixins.json:WorldRendererMixin#onDrawBlockOutline
+fabric-rendering-v1.mixins.json:WorldRendererMixin#onFinishWritingFramebuffer
+fabric-rendering-v1.mixins.json:WorldRendererMixin#setMatrixStack
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#getOverlayBlock
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#modSideSpriteForOverlay
+fabric-command-api-v2.mixins.json:CommandSourceMixin#cancelNamespaceCheck
+fabric-data-generation-api-v1.client.mixins.json:ModelProviderItemAssetsMixin#filterItemsForProcessingMod
+fabric-object-builder-v1.mixins.json:TradeOffersTypeAwareBuyForOneEmeraldFactoryMixin#disableVanillaCheck
+fabric-object-builder-v1.client.mixins.json:HangingSignEditScreenMixin#init
+fabric-object-builder-v1.client.mixins.json:TexturedRenderLayersMixin#redirectHangingVanillaId
+fabric-object-builder-v1.client.mixins.json:TexturedRenderLayersMixin#redirectSignVanillaId
+fabric-registry-sync-v0.mixins.json:ExperimentalRegistriesValidatorMixin#getDynamicRegistries
+fabric-registry-sync-v0.mixins.json:SerializableRegistriesMixin#filterNonSyncedEntries
+fabric-registry-sync-v0.mixins.json:SerializableRegistriesMixin#filterNonSyncedEntriesAgain
+fabric-renderer-api-v1.mixins.json:client.block.particle.InGameOverlayRendererMixin#onReturnGetInWallBlockState
+fabric-resource-conditions-api-v1.mixins.json:JsonDataLoaderMixin#skipData
+fabric-resource-conditions-api-v1.mixins.json:RegistryLoaderMixin#checkResourceCondition
+# Same as 1.21.11: Forge's compile() has its model data map as the first Map local, Indigo's @Local Map would pick it and
+# chunk builds crash. Indigo terrain hooks off (vanilla path), as on 1.21.1, 1.21.4 and 1.21.11.
+fabric-renderer-indigo.mixins.json:SectionBuilderMixin#hookBuild
+fabric-renderer-indigo.mixins.json:SectionBuilderMixin#hookBuildRenderBlock
+fabric-renderer-indigo.mixins.json:SectionBuilderMixin#hookBuildReturn
+# servers121 dry boots: the server Language redirect finds no target on Forge (lenient skip on every server boot); server side
+# language loading of Fabric mods' lang files stays off, as it already was
+fabric-resource-loader-v0.mixins.json:server.LanguageMixin#create
+# Fabric Sodium 0.7.3: FRAPI BlockRenderDispatcherMixin groups a vanilla renderSingleBlock redirect with a NeoForge-only one
+# (@Group min 1); Forge 58's renderSingleBlock only delegates, so neither applies and the group fails. Off: blocks rendered
+# outside chunks (items, falling blocks) through renderSingleBlock use the vanilla path
+sodium-common.mixins.json:features.render.frapi.BlockRenderDispatcherMixin

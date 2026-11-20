@@ -1,0 +1,96 @@
+package alloy.compat120.registry;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import net.minecraft.core.Holder;
+import net.minecraft.core.RegistrationInfo;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.registries.ForgeRegistry;
+import net.minecraftforge.registries.RegistryManager;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+
+/**
+ * 1.21.1 (Forge 52) version of compat120/registry/NamespacedWrapperLateRegister120. Fabric mods register blocks, items and
+ * particle types straight into the vanilla registries from onInitialize. On Forge 52 those are {@code NamespacedWrapper}s and
+ * {@code register(ResourceKey, T, RegistrationInfo)} throws "Can not register to a locked registry. Modder should use Forge
+ * Register methods." once Forge has locked them (Macaw's Bridges, Bountiful Fares: crash at mod init).
+ *
+ * <p>Same fix as 1.20.1, with the 1.20.5+ descriptor (registerMapping is gone): a registration that does not come from Forge
+ * briefly re-opens the registry, lets Forge's own register assign the id, and puts the flags back exactly as they were. Calls
+ * whose first non-registry stack frame is in {@code net.minecraftforge.*} keep Forge's protection.
+ *
+ * <p>FROZEN snapshot (as the 26.1 compat/registry version): Forge rebuilds ACTIVE from FROZEN on world exit and world load.
+ * An entry let through after FREEZE_DATA is added to FROZEN too, with the same id, so it survives a world reload.
+ */
+@Mixin(targets = "net.minecraftforge.registries.NamespacedWrapper", remap = false)
+public abstract class NamespacedWrapperLateRegister120<T> {
+    @Unique private static final org.slf4j.Logger ALLOY$LOG = org.slf4j.LoggerFactory.getLogger("Alloy");
+    @Unique private static final java.util.Set<String> ALLOY$LOGGED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+    @Shadow(remap = false) boolean locked;
+    @Shadow(remap = false) private ForgeRegistry<T> delegate;
+
+    @WrapMethod(method = "register(Lnet/minecraft/resources/ResourceKey;Ljava/lang/Object;Lnet/minecraft/core/RegistrationInfo;)Lnet/minecraft/core/Holder$Reference;", remap = false)
+    private Holder.Reference<T> alloy$allowFabricRegistration(ResourceKey<T> key, T value, RegistrationInfo info,
+                                                                  Operation<Holder.Reference<T>> original) {
+        if (!locked || delegate == null) return original.call(key, value, info);
+        String caller = alloy$firstCaller();
+        if (caller.startsWith("net.minecraftforge.")) return original.call(key, value, info);   // Forge keeps its "too late" error
+        synchronized (RegistryManager.FROZEN) {
+            Holder.Reference<T> h;
+            // put back exactly what was there: the wrapper can be locked while Forge's registry is not frozen yet
+            boolean wasFrozen = delegate.isLocked(), wasLocked = locked;
+            delegate.unfreeze();
+            locked = false;
+            try {
+                h = original.call(key, value, info);
+            } finally {
+                if (wasFrozen) delegate.freeze();
+                locked = wasLocked;
+            }
+            ForgeRegistry<T> frozen = RegistryManager.FROZEN.getRegistry(delegate.getRegistryName());
+            String phase = frozen == null ? "before FREEZE_DATA (Forge copies it to FROZEN)"
+                    : "after FREEZE_DATA, " + alloy$copyToFrozen(frozen, key, value);
+            // one INFO line per registry (Macaw's mods add hundreds of blocks), the rest at debug; entries after FREEZE_DATA always
+            if (frozen != null || ALLOY$LOGGED.add(String.valueOf(delegate.getRegistryName())))
+                ALLOY$LOG.info("[Alloy] late registration {} into {} by {}: {}{}", key.location(), delegate.getRegistryName(), caller, phase,
+                        frozen == null ? " (more of these for this registry at debug level)" : "");
+            else
+                ALLOY$LOG.debug("[Alloy] late registration {} into {} by {}: {}", key.location(), delegate.getRegistryName(), caller, phase);
+            return h;
+        }
+    }
+
+    /** Add a late entry to Forge's FROZEN snapshot with the id ACTIVE gave it (Forge picks the next free id if it is taken). */
+    @Unique
+    private String alloy$copyToFrozen(ForgeRegistry<T> frozen, ResourceKey<T> key, T value) {
+        ResourceLocation name = key.location();
+        if (frozen.containsKey(name)) return "already in FROZEN";
+        int id = delegate.getID(value);
+        boolean wasLocked = frozen.isLocked();
+        try {
+            frozen.unfreeze();
+            frozen.register(id, name, value);
+        } catch (RuntimeException e) {
+            ALLOY$LOG.error("[Alloy] could not copy late entry {} into Forge's FROZEN {}: it can disappear on world reload", name,
+                    delegate.getRegistryName(), e);
+            return "NOT copied to FROZEN (" + e + ")";
+        } finally {
+            if (wasLocked) frozen.freeze();
+        }
+        int got = frozen.getID(name);
+        return got == id ? "copied to FROZEN as id " + id : "copied to FROZEN as id " + got + " (ACTIVE id " + id + ")";
+    }
+
+    /** First stack frame outside the registry classes, Alloy's own compat code and the JDK. */
+    @Unique
+    private static String alloy$firstCaller() {
+        return StackWalker.getInstance().walk(frames -> frames
+                .map(f -> f.getClassName())
+                .filter(n -> !n.equals("net.minecraft.core.Registry") && !n.startsWith("net.minecraftforge.registries.NamespacedWrapper")
+                        && !n.startsWith("alloy.compat120.registry.") && !n.startsWith("java.") && !n.startsWith("jdk."))
+                .findFirst().orElse("?"));
+    }
+}

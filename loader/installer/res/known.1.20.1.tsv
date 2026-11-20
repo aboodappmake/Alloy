@@ -1,0 +1,31 @@
+# Alloy on Minecraft 1.20.1 (Forge 47.4.29): mods that must never run together - id	side	verdict	note
+# Bundled in the installer; Mod Doctor reads its PAIR, BLOCK and NOTE rows when it checks Minecraft 1.20.1 (known.<mc>.tsv). "a+b" PAIR rows warn when both ids are installed, BLOCK rows stop the start.
+# Source: run/research_120compat/test_list.json "never_together_with_alloy" (mod ids read from the jars' mods.toml / fabric.mod.json).
+# Starlight Fabric and Starlight Forge share the id "starlight": a PAIR row cannot tell them apart, so that one is a NOTE.
+sodium+embeddium	both	BLOCK	Embeddium replaces the same renderer as Sodium and both patch the same classes. Keep one: Sodium (Fabric) with Alloy's compat, or Embeddium alone.
+sodium+rubidium	both	PAIR	Rubidium is an old Sodium port and patches the same classes. Remove Rubidium.
+iris+oculus	both	BLOCK	Oculus is the Iris port: both ship net/irisshaders/iris/api and patch the same classes. Keep Iris with Sodium, or Oculus with Embeddium.
+oculus+rubidium	both	PAIR	Oculus 1.7 and newer need Embeddium: Rubidium (the old Sodium port) lacks classes they use, and the game crashes at start, on plain Forge too (Oculus 1.8.0 with Rubidium 0.7.1: ClassNotFoundException ModelPartData). Replace Rubidium with Embeddium.
+iris+embeddium	both	PAIR	Iris needs Sodium, not Embeddium. Keep Embeddium with Oculus (Forge), or Sodium with Iris (Fabric), not a mix.
+reeses-sodium-options+textrues_embeddium_options	both	PAIR	TexTrue's Embeddium Options belongs to Embeddium, not Sodium. Remove it.
+sodium+textrues_embeddium_options	both	PAIR	TexTrue's Embeddium Options needs Embeddium. Use Reese's Sodium Options with Sodium.
+reeses-sodium-options+embeddium	both	PAIR	Embeddium has Reese's video settings screen built in (with search, the shader tab and a tab per mod). Alloy keeps Embeddium's screen, so Reese's is not needed; its button tweaks still apply there and push the tab titles over the mod logos. Remove Reese's.
+sodium-extra+embeddium_extra	both	BLOCK	Embeddium Extra is the Forge port of Sodium Extra: both add the same settings pages and patch the same code. Keep one: Embeddium Extra with Embeddium, or Sodium Extra.
+lithium+canary	both	PAIR	Canary is a Lithium port with the same targets. Keep one; on Forge 47 the Forge port (better: Radium Re-Reforged) is safer than Fabric Lithium.
+lithium+radium	both	PAIR	Radium is a Lithium port with the same targets. Keep Radium (Re-Reforged): it fires Forge's chunk watch events, Fabric Lithium does not.
+krypton+kreno	both	PAIR	Krypton Reno is the Krypton port; both rewrite the Netty pipeline. Keep one.
+lambdynlights+sodiumdynamiclights	both	PAIR	Sodium Dynamic Lights is a LambDynamicLights twin. Keep one.
+indium+lazurite	both	PAIR	Lazurite is the FRAPI for Embeddium; Indium does this job for Sodium. Remove Lazurite.
+sodium+lazurite	both	PAIR	Lazurite needs Embeddium. With Sodium use Indium.
+starlight	both	NOTE	Starlight exists for Fabric and Forge under the same id. It is not needed on 1.20.x; the Fabric build ignores Forge's position aware light. Remove it, or keep only the Forge build.
+connector	both	FAIL	Sinytra Connector: Alloy replaces it. Remove it.
+fabric_api	both	FAIL	Forgified Fabric API (Forge jar, id fabric_api): Alloy runs the real Fabric API. Remove it.
+connectorextras	both	FAIL	Connector Extras needs Connector. Alloy must provide those bridges itself. Remove it.
+zoomify+controlify	client	PAIR	Zoomify 2.15.2+1.20.1 lists a controlify entrypoint class (integrations.ControlifyIntegration) that is not in its jar, so Controlify 2.1.2 crashes at load ("Failed to initialize Controlify", ClassNotFoundException). Not an Alloy problem. Remove one of the two.
+# Fabric builds with injectors Forge 47 rewrote (matrix120 results_fabric_offline.json, 2026-11-14). Alloy strips those
+# injectors (prefit_strip.1.20.1.txt) so the mod loads; the features below are off. NOTE rows: the mod still loads.
+architectury	both	NOTE	Fabric build on Alloy 1.20.1 (matrix120 results_fabric_offline.json): Architectury's screen render pre/post and char-typed events its spawn checks for spawners, chunk generation, phantoms and cats, CLIENT_RIGHT_CLICK_AIR and ExplosionEvent.PRE do not fire. Use the Forge build unless a Fabric mod needs this one.
+continuity	client	NOTE	Fabric build on Alloy 1.20.1 (matrix120 results_fabric_offline.json): falling blocks show without connected textures.
+geckolib	client	NOTE	Fabric build on Alloy 1.20.1 (matrix120 results_fabric_offline.json): GeckoLib armor models are off (the vanilla armor model shows). Use the Forge build unless a Fabric mod needs this one.
+jei	client	NOTE	Fabric build on Alloy 1.20.1 (matrix120 results_fabric_offline.json): JEI's key-conflict lookup and char-typed hooks are off, so its search field may not take typed text. Use the Forge build of JEI.
+moreculling	client	NOTE	Fabric build on Alloy 1.20.1 (matrix120 results_fabric_offline.json): the item transparency shortcut and cull shapes set in model JSON are off (speed only).

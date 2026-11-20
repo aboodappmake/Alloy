@@ -1,0 +1,44 @@
+package alloy.compat120.fluid;
+
+import net.minecraft.client.renderer.block.LiquidBlockRenderer;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.BlockPos;
+import net.minecraft.tags.FluidTags;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.material.FluidState;
+import com.mojang.blaze3d.vertex.VertexConsumer;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): fabric-rendering-fluids-v1 FluidRendererMixin#modSpriteArray on Forge's tesselate.
+ *
+ * <p>Forge 47 gets the fluid sprites from {@code ForgeHooksClient.getFluidSprites}: {still, flowing, overlay}, and reads
+ * index 2 (null = no overlay). Fabric swaps that local for its handler's sprites, which have only {still, flowing} for vanilla
+ * water and lava (vanilla keeps the water overlay in a separate field).
+ *
+ * <p>Minecraft 1.21.11 copy (bridge/src61): Material has no sprite() there, so the overlay comes from the renderer's own
+ * waterOverlay field. Forge then reads index 2 and the chunk build crashes
+ * ("Index 2 out of bounds for length 2"). This runs after Fabric's handler (priority 1100) and adds the third slot: the
+ * water overlay for water, null (no overlay, as Forge does for lava) otherwise.
+ */
+@Mixin(value = LiquidBlockRenderer.class, remap = false, priority = 1100)
+public abstract class LiquidBlockRendererCompat120 {
+    @Shadow @Final private TextureAtlasSprite waterOverlay;
+
+    @ModifyVariable(method = "tesselate", ordinal = 0, at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/client/renderer/block/LiquidBlockRenderer;isNeighborSameFluid(Lnet/minecraft/world/level/material/FluidState;Lnet/minecraft/world/level/material/FluidState;)Z"))
+    private TextureAtlasSprite[] alloy$threeSprites(TextureAtlasSprite[] sprites, BlockAndTintGetter level, BlockPos pos, VertexConsumer out,
+                                                    BlockState block, FluidState fluid) {
+        if (sprites == null || sprites.length >= 3) return sprites;
+        TextureAtlasSprite[] r = new TextureAtlasSprite[3];
+        System.arraycopy(sprites, 0, r, 0, sprites.length);
+        if (sprites.length < 2) r[1] = r[0];
+        r[2] = fluid.is(FluidTags.WATER) ? this.waterOverlay : null;
+        return r;
+    }
+}

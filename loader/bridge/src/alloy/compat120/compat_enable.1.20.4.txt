@@ -1,0 +1,47 @@
+# compat120 sources built for 1.20.4 (launch120.py, profile tools.compatLists.enable). Path below compat120, no .java.pending.
+# Left out: loot/LootSupplierCompat120 (fabric-loot-tables-v1 is gone in Fabric API 0.97.3).
+interaction/ServerPlayerGameModeCompat120
+entityevents/SleepCompat120
+item/ItemCompat120
+loot/LootTableCompat120
+registry/WorldLoaderCompat120
+registry/MappedRegistryCompat120
+registry/FreezeTrace120
+# Fabric mods register blocks and items in onInitialize; Forge 49 has locked the NamespacedWrapper by then (as on 1.20.1)
+registry/NamespacedWrapperLateRegister120
+# a Fabric mod may register a BlockItem before its Block; Forge's getBlock() throws for the unregistered block (as on 1.20.1)
+block/BlockItemRegisterCompat120
+block/BlockAppearanceCompat120
+itemchunk/LevelChunkLifecycleCompat120
+particle/ParticleEngineCompat120
+particle/ParticleIdMap
+fluid/LiquidBlockRendererCompat120
+model/ModelManagerCompat120
+mpforge/ForgeClientNoFabricSync49
+net49/ForgePayloadsStayForge49
+client49/QuickPlayForgeBus49
+# Creative tabs: Forge is the only pager, Fabric's page mirrors it (Fabric's screen injectors stripped in compat_replaces)
+gui/CreativeTabPagesCompat120
+resource/ReloadSortCompat120
+resource/ReloadTypes
+# Fabric color providers: fabric-rendering-v1 BlockColorsMixin/ItemColorsMixin are stripped, these call initialize and get
+color/BlockColorsCompat120
+color/ItemColorsCompat120
+# Forge 49 ModList.isLoaded is an instance method, as on Forge 47 (cross-side mod presence)
+presence/ModListPresenceCompat120
+# duplicate key binding names (keybind bridge plan section 4) and late Fabric keys with -Dalloy.fabricAfterForge (section 5)
+input/KeyMappingAllAccess120
+input/OptionsKeyDedupe120
+input/LateFabricKeys120
+# a Fabric mod's login query (Forge Config API Port) reached Forge's login hook, whose getInternalData casts to
+# DiscardedQueryPayload: ClassCastException, integrated server join failed (reg051 1.20.4). Forge sees only payloads it can read
+net49/FabricLoginQuery49
+# client UseEntityCallback: Fabric's MinecraftClientMixin#injectUseEntityCallback is stripped (Forge's extra local in
+# startUseItem); same hook before interactAt with the locals read by type (same startUseItem shape as 1.20.1 and 1.20.2, javap)
+interaction/UseEntityClientCompat120
+# WorldRenderEvents.AFTER_TRANSLUCENT: Fabric's particle flag set after Forge's 6-argument ParticleEngine.render (same
+# renderLevel descriptor and particle call as Forge 47, javap)
+gui/AfterTranslucentCompat120
+# ScreenKeyboardEvents, ScreenEvents before/afterRender and before/afterTick around Forge's calls (src49 overlay: Forge 48
+# and 49 name the screen tick lambda lambda$tick$49 and lambda$tick$50; key lambda and drawScreen as on Forge 47, javap)
+gui/ScreenEventsCompat120

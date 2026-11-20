@@ -1,0 +1,33 @@
+package alloy.compat120support.sodium;
+
+/**
+ * Iris class names for the reflection in Iris120, IrisShader120 and IrisFeatures120. Iris 1.7 (1.20.1, 1.20.4) has its classes
+ * under net.irisshaders.iris; Iris 1.6 (the last line for 1.20.2, 1.6.14) still under net.coderbot.iris, and a few moved
+ * package. Each lookup tries the 1.7 name first, then the 1.6 one.
+ */
+final class IrisNames120 {
+    private IrisNames120() { }
+
+    /** Iris 1.7 name, Iris 1.6 name */
+    static final String[][] NAMES = {
+            {"net.irisshaders.iris.Iris", "net.coderbot.iris.Iris"},
+            {"net.irisshaders.iris.pipeline.PipelineManager", "net.coderbot.iris.pipeline.PipelineManager"},
+            {"net.irisshaders.iris.pipeline.WorldRenderingPipeline", "net.coderbot.iris.pipeline.WorldRenderingPipeline"},
+            {"net.irisshaders.iris.shaderpack.properties.ParticleRenderingSettings", "net.coderbot.iris.shaderpack.ParticleRenderingSettings"},
+            {"net.irisshaders.iris.pipeline.programs.ShaderAccess", "net.coderbot.iris.pipeline.ShaderAccess"},
+            {"net.irisshaders.iris.pipeline.programs.ExtendedShader", "net.coderbot.iris.pipeline.newshader.ExtendedShader"},
+            {"net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings", "net.coderbot.iris.block_rendering.BlockRenderingSettings"},
+            {"net.irisshaders.iris.shaderpack.materialmap.NamespacedId", "net.coderbot.iris.shaderpack.materialmap.NamespacedId"},
+            {"net.irisshaders.iris.uniforms.CapturedRenderingState", "net.coderbot.iris.uniforms.CapturedRenderingState"}};
+
+    /** the Iris class for this Iris 1.7 name (or its Iris 1.6 name) */
+    static Class<?> cls(String name17) throws ClassNotFoundException {
+        ClassLoader cl = IrisNames120.class.getClassLoader();
+        try {
+            return Class.forName(name17, false, cl);
+        } catch (ClassNotFoundException e) {
+            for (String[] n : NAMES) if (n[0].equals(name17)) return Class.forName(n[1], false, cl);
+            throw e;
+        }
+    }
+}

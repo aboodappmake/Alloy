@@ -1,0 +1,41 @@
+package alloy.compat120.recipe;
+
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import net.fabricmc.fabric.api.recipe.v1.ingredient.CustomIngredientSerializer;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.util.GsonHelper;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraftforge.common.crafting.CraftingHelper;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): Fabric custom ingredients in recipe JSON ({@code "fabric:type": "fabric:nbt"} and the
+ * other fabric-recipe-api types). Fabric reads them in a hook on vanilla {@code Ingredient.fromJson} at its
+ * {@code valueFromJson} call; Forge 47 replaced that body with {@code CraftingHelper.getIngredient}, so the hook never runs.
+ * The object then reaches Forge's VanillaIngredientSerializer, whose {@code valueFromJson} call meets Fabric's other hook,
+ * which refuses custom ingredients there ("Custom ingredient cannot be used inside an array ingredient"). Wilder Wild's
+ * copper horn recipes failed this way.
+ *
+ * <p>Fix: Forge's entry point reads a JSON object with {@code fabric:type} the way Fabric's hook does: the registered
+ * Fabric serializer reads it and {@code toVanilla()} gives the Ingredient. Arrays keep Fabric's own rule (no custom
+ * ingredients inside an array; Fabric says to use fabric:any). Unknown types still fail like on Fabric.
+ * Not checked: sending such recipes to a dedicated server's clients (Forge 47 writes non-vanilla ingredients with its
+ * own serializer).
+ */
+@Mixin(value = CraftingHelper.class, remap = false)
+public abstract class FabricIngredientJsonCompat120 {
+    @Inject(method = "getIngredient(Lcom/google/gson/JsonElement;Z)Lnet/minecraft/world/item/crafting/Ingredient;", at = @At("HEAD"), cancellable = true)
+    private static void alloy$fabricCustomIngredient(JsonElement json, boolean requireNotEmpty, CallbackInfoReturnable<Ingredient> cir) {
+        if (json == null || !json.isJsonObject()) return;
+        JsonObject o = json.getAsJsonObject();
+        if (!o.has("fabric:type")) return;
+        ResourceLocation id = new ResourceLocation(GsonHelper.getAsString(o, "fabric:type"));
+        CustomIngredientSerializer<?> s = CustomIngredientSerializer.get(id);
+        if (s == null) throw new IllegalArgumentException("Unknown custom ingredient type: " + id);
+        cir.setReturnValue(s.read(o).toVanilla());
+    }
+}

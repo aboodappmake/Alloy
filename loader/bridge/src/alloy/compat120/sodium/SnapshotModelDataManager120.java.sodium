@@ -1,0 +1,40 @@
+package alloy.compat120support.sodium;
+
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelDataManager;
+
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.Map;
+
+/**
+ * What Sodium's WorldSlice returns for Forge's IForgeBlockGetter.getModelDataManager() (R11). Mods read neighbour data in
+ * BakedModel.getModelData(level, pos, ...) through it. It answers from the section's main-thread snapshot, so nothing on the
+ * worker thread touches the live manager (Forge 47's getAt refreshes block entities). Outside the section it has no data.
+ */
+public final class SnapshotModelDataManager120 extends ModelDataManager {
+    private final WorldSliceExt120 slice;
+
+    public SnapshotModelDataManager120(Level level, WorldSliceExt120 slice) {
+        super(level);
+        this.slice = slice;
+    }
+
+    @Override public void requestRefresh(BlockEntity be) { }
+
+    @Override public ModelData getAt(BlockPos pos) {
+        return slice.alloy$modelData().get(pos);   // null when absent, like Forge
+    }
+
+    @Override public Map<BlockPos, ModelData> getAt(ChunkPos pos) {
+        Map<BlockPos, ModelData> snap = slice.alloy$modelData();
+        if (snap.isEmpty()) return Collections.emptyMap();
+        Map<BlockPos, ModelData> out = new HashMap<>();
+        snap.forEach((p, d) -> { if ((p.getX() >> 4) == pos.x && (p.getZ() >> 4) == pos.z) out.put(p, d); });
+        return out;
+    }
+}

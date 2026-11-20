@@ -1,0 +1,77 @@
+package alloy.compat120.model;
+
+import java.util.function.Function;
+import net.fabricmc.fabric.impl.client.model.loading.ModelLoaderHooks;
+import net.fabricmc.fabric.impl.client.model.loading.ModelLoadingEventDispatcher;
+import net.minecraft.client.renderer.block.model.BlockModel;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.Material;
+import net.minecraft.client.resources.model.ModelBaker;
+import net.minecraft.client.resources.model.ModelBakery;
+import net.minecraft.client.resources.model.ModelState;
+import net.minecraft.client.resources.model.UnbakedModel;
+import net.minecraft.resources.ResourceLocation;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyVariable;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): Fabric's model modifiers (ModelLoadingPlugin modifyModelBeforeBake and
+ * modifyModelAfterBake). fabric-model-loading-api-v1's ModelLoaderBakerImplMixin hooks ModelBakerImpl.bake(id, state), but
+ * on Forge that method only calls Forge's bake(id, state, sprites), which holds the getModel and UnbakedModel.bake calls. Its
+ * handlers are stripped (prefit_strip.1.20.1.txt), so wrapped models never appeared: Continuity's connected textures and
+ * emissive textures, and any Fabric mod that wraps a baked model. This does the same three hooks on Forge's overload, with
+ * the sprite getter Forge passes in.
+ *
+ * <p>Off unless -Dalloy.fabricModelModifiers=true. With it on, Continuity wraps every block model, and a wrapped Forge model
+ * drawn through Fabric's renderer path (Embeddium's FRAPI support, Indium) loses its ModelData and its render_type: cutout
+ * plants from Forge mods come out as solid squares and Rechiseled's connected textures go flat (embeddium120, 2026-11-14).
+ * It can be on by default once Fabric's vanilla model encoder passes ModelData and render types on Forge.
+ */
+@Mixin(targets = "net.minecraft.client.resources.model.ModelBakery$ModelBakerImpl", remap = false)
+public abstract class ModelBakerCompat120 {
+    @Unique private static final String BAKE = "bake(Lnet/minecraft/resources/ResourceLocation;Lnet/minecraft/client/resources/model/ModelState;"
+            + "Ljava/util/function/Function;)Lnet/minecraft/client/resources/model/BakedModel;";
+
+    @Unique private static final boolean ALLOY$ON = Boolean.getBoolean("alloy.fabricModelModifiers");
+
+    @Shadow @Final private ModelBakery this$0;
+
+    @Unique
+    private ModelLoadingEventDispatcher alloy$dispatcher() {
+        return ((ModelLoaderHooks) this$0).fabric_getDispatcher();
+    }
+
+    @ModifyVariable(method = BAKE, at = @At(value = "INVOKE_ASSIGN", target = "Lnet/minecraft/client/resources/model/ModelBakery$ModelBakerImpl;"
+            + "getModel(Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/client/resources/model/UnbakedModel;"))
+    private UnbakedModel alloy$modifyBeforeBake(UnbakedModel model, ResourceLocation id, ModelState state,
+                                                Function<Material, TextureAtlasSprite> sprites) {
+        ModelLoadingEventDispatcher d = ALLOY$ON ? alloy$dispatcher() : null;
+        return d == null ? model : d.modifyModelBeforeBake(model, id, sprites, state, (ModelBaker) this);
+    }
+
+    @Redirect(method = BAKE, at = @At(value = "INVOKE", target = "Lnet/minecraft/client/resources/model/UnbakedModel;bake("
+            + "Lnet/minecraft/client/resources/model/ModelBaker;Ljava/util/function/Function;Lnet/minecraft/client/resources/model/ModelState;"
+            + "Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/client/resources/model/BakedModel;"))
+    private BakedModel alloy$modifyAfterBake(UnbakedModel unbaked, ModelBaker baker, Function<Material, TextureAtlasSprite> sprites,
+                                             ModelState state, ResourceLocation id) {
+        BakedModel model = unbaked.bake(baker, sprites, state, id);
+        ModelLoadingEventDispatcher d = ALLOY$ON ? alloy$dispatcher() : null;
+        return d == null ? model : d.modifyModelAfterBake(model, id, unbaked, sprites, state, baker);
+    }
+
+    @Redirect(method = BAKE, at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/block/model/BlockModel;bake("
+            + "Lnet/minecraft/client/resources/model/ModelBaker;Lnet/minecraft/client/renderer/block/model/BlockModel;Ljava/util/function/Function;"
+            + "Lnet/minecraft/client/resources/model/ModelState;Lnet/minecraft/resources/ResourceLocation;Z)Lnet/minecraft/client/resources/model/BakedModel;"))
+    private BakedModel alloy$modifyAfterBakeGenerated(BlockModel unbaked, ModelBaker baker, BlockModel parent, Function<Material, TextureAtlasSprite> sprites,
+                                                      ModelState state, ResourceLocation id, boolean hasDepth) {
+        BakedModel model = unbaked.bake(baker, parent, sprites, state, id, hasDepth);
+        ModelLoadingEventDispatcher d = ALLOY$ON ? alloy$dispatcher() : null;
+        return d == null ? model : d.modifyModelAfterBake(model, id, unbaked, sprites, state, baker);
+    }
+}

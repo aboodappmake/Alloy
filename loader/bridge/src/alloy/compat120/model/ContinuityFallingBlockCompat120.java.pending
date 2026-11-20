@@ -1,0 +1,80 @@
+package alloy.compat120.model;
+
+import java.lang.reflect.Method;
+import net.minecraft.client.renderer.entity.FallingBlockRenderer;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.20.1 (Forge 47): Continuity 3.0 turns connected and emissive textures off while a falling block is drawn
+ * (FallingBlockEntityRendererMixin, before and after the vanilla 10-argument ModelBlockRenderer.tesselateBlock). Forge's
+ * FallingBlockRenderer calls the 12-argument tesselateBlock (ModelData, RenderType) once per render type instead, so the
+ * injection finds nothing and Continuity's require stops the game. That mixin is stripped (compat_replaces.1.20.1.txt)
+ * and this one does the same around Forge's call. Without Continuity it does nothing.
+ */
+@Mixin(FallingBlockRenderer.class)
+public abstract class ContinuityFallingBlockCompat120 {
+    @Unique private static final String TESSELATE = "Lnet/minecraft/client/renderer/block/ModelBlockRenderer;tesselateBlock("
+            + "Lnet/minecraft/world/level/BlockAndTintGetter;Lnet/minecraft/client/resources/model/BakedModel;"
+            + "Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/BlockPos;Lcom/mojang/blaze3d/vertex/PoseStack;"
+            + "Lcom/mojang/blaze3d/vertex/VertexConsumer;ZLnet/minecraft/util/RandomSource;JI"
+            + "Lnet/minecraftforge/client/model/data/ModelData;Lnet/minecraft/client/renderer/RenderType;)V";
+
+    @Inject(method = "render(Lnet/minecraft/world/entity/item/FallingBlockEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;"
+            + "Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At(value = "INVOKE", target = TESSELATE), require = 0)
+    private void alloy$continuityBefore(CallbackInfo ci) {
+        alloy$set(false);
+    }
+
+    @Inject(method = "render(Lnet/minecraft/world/entity/item/FallingBlockEntity;FFLcom/mojang/blaze3d/vertex/PoseStack;"
+            + "Lnet/minecraft/client/renderer/MultiBufferSource;I)V", at = @At(value = "INVOKE", target = TESSELATE, shift = At.Shift.AFTER), require = 0)
+    private void alloy$continuityAfter(CallbackInfo ci) {
+        alloy$set(true);
+    }
+
+    @Unique private static final Logger ALLOY$LOG = LoggerFactory.getLogger("Alloy");
+    @Unique private static boolean alloy$looked;
+    @Unique private static Method alloy$get, alloy$ctm, alloy$emissive, alloy$enable, alloy$disable;
+
+    /** ContinuityFeatureStates, looked up once by reflection (the bridge is built without Continuity) */
+    @Unique
+    private static void alloy$set(boolean on) {
+        if (!alloy$looked) alloy$look();
+        if (alloy$get == null) return;
+        try {
+            Object states = alloy$get.invoke(null);
+            Method m = on ? alloy$enable : alloy$disable;
+            m.invoke(alloy$ctm.invoke(states));
+            m.invoke(alloy$emissive.invoke(states));
+        } catch (Throwable t) {
+            alloy$get = null;
+            ALLOY$LOG.warn("Alloy compat: Continuity falling block hook turned off: {}", t.toString());
+        }
+    }
+
+    @Unique
+    private static synchronized void alloy$look() {
+        if (alloy$looked) return;
+        alloy$looked = true;
+        try {
+            ClassLoader cl = FallingBlockRenderer.class.getClassLoader();   // Knot, where Continuity lives
+            Class<?> s = Class.forName("me.pepperbell.continuity.api.client.ContinuityFeatureStates", false, cl);
+            Class<?> f = Class.forName("me.pepperbell.continuity.api.client.ContinuityFeatureStates$FeatureState", false, cl);
+            alloy$ctm = s.getMethod("getConnectedTexturesState");
+            alloy$emissive = s.getMethod("getEmissiveTexturesState");
+            alloy$enable = f.getMethod("enable");
+            alloy$disable = f.getMethod("disable");
+            alloy$get = s.getMethod("get");
+        } catch (ClassNotFoundException e) {
+            alloy$get = null;   // no Continuity
+        } catch (Throwable t) {
+            alloy$get = null;
+            ALLOY$LOG.warn("Alloy compat: Continuity found but its feature states are not usable: {}", t.toString());
+        }
+    }
+}

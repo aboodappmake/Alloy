@@ -1,0 +1,31 @@
+package alloy.compat120.loot;
+
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
+import net.fabricmc.fabric.api.loot.v1.FabricLootSupplier;
+import net.minecraft.world.level.storage.loot.LootPool;
+import net.minecraft.world.level.storage.loot.LootTable;
+import net.minecraft.world.level.storage.loot.functions.LootItemFunction;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): stands in for fabric-loot-tables-v1's LootTableMixin, which is stripped
+ * (prefit_strip.1.20.1.txt) because it shadows {@code LootPool[] pools} and Forge 47 keeps the pools in a List.
+ *
+ * <p>LootTablesV1Init casts every loot table to {@link FabricLootSupplier} when the v2 MODIFY event runs (each data load,
+ * e.g. when a world is created). Without an implementation the cast fails and the world never opens.
+ */
+@Mixin(value = LootTable.class, remap = false)
+public abstract class LootSupplierCompat120 implements FabricLootSupplier {
+    @Shadow @Final private List<LootPool> pools;
+    @Shadow @Final LootItemFunction[] functions;
+
+    @Override
+    public List<LootPool> getPools() { return Collections.unmodifiableList(pools); }
+
+    @Override
+    public List<LootItemFunction> getFunctions() { return Arrays.asList(functions); }
+}

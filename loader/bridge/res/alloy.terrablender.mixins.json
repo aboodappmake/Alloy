@@ -1,0 +1,13 @@
+{
+ "required": false,
+ "minVersion": "0.8",
+ "package": "alloy.compat.terrablender",
+ "plugin": "alloy.viewers.ViewersMixinPlugin",
+ "compatibilityLevel": "JAVA_21",
+ "mixins": [
+  "TerraBlenderForgeMixin"
+ ],
+ "injectors": {
+  "defaultRequire": 0
+ }
+}

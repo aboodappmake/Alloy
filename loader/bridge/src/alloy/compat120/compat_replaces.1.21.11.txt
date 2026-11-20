@@ -1,0 +1,43 @@
+# Fabric API mixins that an alloy.compat120 mixin fully re-implements on 1.21.11.
+# Forge 61 already has ServerCommonPacketListenerImpl.getConnection(), the same getter: the accessors may replace it
+# (overwrites.requireAnnotations=false for that config; the same thing a conflict report does)
+fabric-networking-api-v1.mixins.json:accessor.ServerCommonPacketListenerImplAccessor@relax
+fabric-recipe-api-v1.mixins.json:sync.ServerCommonPacketListenerImplAccessor@relax
+# Forge's patch renames the captured locals of the interact handler (ServerGamePacketListenerImpl$1): val$target -> val$entity
+fabric-events-interaction-v0.mixins.json:ServerPlayNetworkHandlerInteractEntityHandlerMixin@field:val$target=val$entity
+# Forge's patch keeps an SRG name for the captured tag map of MappedRegistry$TagSet$2: val$tags -> val$p_364506_
+fabric-tag-api-v1.mixins.json:MappedRegistryTagSet2Accessor@fabric_getTagMap()Ljava/util/Map;=val$p_364506_
+fabric-tag-api-v1.mixins.json:MappedRegistryTagSet2Accessor@fabric_setTagMap(Ljava/util/Map;)V=val$p_364506_
+# --- port121x: Fabric halves of the compat120 sources now built on 1.21.11 (moved here from the strip list)
+# PlayerBlockBreakEvents: interaction.ServerPlayerGameModeCompat120 (src61)
+fabric-events-interaction-v0.mixins.json:ServerPlayerGameModeMixin#breakBlock
+fabric-events-interaction-v0.mixins.json:ServerPlayerGameModeMixin#onBlockBroken
+# block entity load and unload: itemchunk.LevelChunkLifecycleCompat120 (client and server). The server half's slice redirect
+# had no target on Forge 61 either (servers121 dry boot warning), so the whole server mixin goes
+fabric-lifecycle-events-v1.client.mixins.json:LevelChunkMixin
+fabric-lifecycle-events-v1.mixins.json:server.LevelChunkMixin
+# recipe remainders: item.ItemCompat120$ItemRemainder (src54) feeds Forge's IForgeItem.getCraftingRemainder(ItemStack)
+fabric-item-api-v1.mixins.json:CraftingRecipeMixin
+fabric-item-api-v1.mixins.json:BrewingStandBlockEntityMixin
+fabric-item-api-v1.mixins.json:AbstractFurnaceBlockEntityMixin
+# EntitySleepEvents bed checks: entityevents.SleepCompat120 (src61)
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onIsSleepingInBed
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onGetSleepingDirection
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyBedForOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#setOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyWakeUpPosition
+# Fabric dynamic registries: registry.WorldLoaderCompat120 (src54) hands Forge's list plus Fabric's
+fabric-registry-sync-v0.mixins.json:WorldLoaderMixin
+# client52.FabricClientHooks52 (src61): screen keys, mouse and drag, render, continue breaking, enchanting
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onRenderScreen
+fabric-screen-api-v1.mixins.json:KeyboardHandlerMixin#invokeKeyPressedEvents
+fabric-screen-api-v1.mixins.json:KeyboardHandlerMixin#invokeKeyReleasedEvents
+fabric-screen-api-v1.mixins.json:MouseHandlerMixin#invokeMouseClickedEvents
+fabric-screen-api-v1.mixins.json:MouseHandlerMixin#invokeMouseDragEvents
+fabric-screen-api-v1.mixins.json:MouseHandlerMixin#invokeMousePressedEvents
+fabric-item-api-v1.mixins.json:EnchantmentHelperMixin#useCustomEnchantingChecks
+fabric-item-api-v1.client.mixins.json:MultiPlayerGameModeMixin#fabricItemContinueBlockBreakingInject
+# Fabric Sodium 0.8.14: its core LevelRendererMixin replaces vanilla extractVisibleBlockEntities(Camera, F, LevelRenderState) at
+# HEAD; Forge 61 added a Frustum argument. alloy-sodium121.jar's BlockEntitiesMixin121 (compat121/sodium/mc1.21.11) does it
+# on Forge's method (without it every block entity is invisible under Sodium)
+sodium-common.mixins.json:core.render.world.LevelRendererMixin#extractVisibleBlockEntities

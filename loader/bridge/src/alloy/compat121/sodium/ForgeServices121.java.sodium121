@@ -1,0 +1,36 @@
+package alloy.compat121support.sodium;
+
+import net.caffeinemc.mods.sodium.client.services.PlatformBlockAccess;
+import net.caffeinemc.mods.sodium.client.services.PlatformLevelRenderHooks;
+import net.caffeinemc.mods.sodium.client.services.PlatformModelAccess;
+import net.fabricmc.loader.api.FabricLoader;
+
+/**
+ * Which Sodium services get Alloy's Forge answers (called from the service interfaces' static initializers, see
+ * mixin.PlatformModelAccessMixin121). No Minecraft classes are touched here.
+ */
+public final class ForgeServices121 {
+    private ForgeServices121() { }
+
+    /** Alloy's Forge implementation of a Sodium service, or null to keep Sodium's own (ServiceLoader) answer. */
+    public static Object service(Class<?> c) {
+        Object s;
+        if (c == PlatformModelAccess.class) s = new ForgeModelAccess121();
+        else if (c == PlatformBlockAccess.class) s = new ForgeBlockAccess121();
+        else if (c == PlatformLevelRenderHooks.class) s = optional("alloy.compat121support.sodium.ForgeLevelRenderHooks121");   // 1.21.1 only
+        else return null;
+        if (s == null) return null;
+        String v = FabricLoader.getInstance().getModContainer("sodium").map(m -> m.getMetadata().getVersion().getFriendlyString()).orElse("?");
+        SodiumForge121.LOG.info("Forge rendering compat for Sodium {}: service {} -> {}", v, c.getSimpleName(), s.getClass().getSimpleName());
+        return s;
+    }
+
+    /** a Forge answer that only some 1.21.x builds carry (left out by mc<version>/exclude.txt) */
+    private static Object optional(String name) {
+        try {
+            return Class.forName(name, true, ForgeServices121.class.getClassLoader()).getDeclaredConstructor().newInstance();
+        } catch (ReflectiveOperationException | LinkageError e) {
+            return null;
+        }
+    }
+}

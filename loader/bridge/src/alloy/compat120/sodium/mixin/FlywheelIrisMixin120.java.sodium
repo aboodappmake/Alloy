@@ -1,0 +1,23 @@
+package alloy.compat120.sodium.mixin;
+
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * R9: Forge Flywheel 1.0 turns on its Iris support only when Forge's mod list has "iris" or "oculus". Fabric Iris is not in
+ * Forge's mod list, so with a shader pack Flywheel kept drawing Create's shafts and cogwheels with its own instancing, which
+ * the shader pipeline does not show (they were invisible, only their shadows). Fabric Iris 1.7 has the same IrisApi
+ * (net.irisshaders.iris.api.v0) Flywheel calls, so answering true is enough: Flywheel then stops instancing while a pack is
+ * on and the block entities render the normal way. Added by SodiumPlugin120 only with Iris and Flywheel 1.0.
+ */
+@Pseudo
+@Mixin(targets = "dev.engine_room.flywheel.impl.FlwImplXplatImpl", remap = false)
+public abstract class FlywheelIrisMixin120 {
+    @Inject(method = "useIrisCompat()Z", at = @At("HEAD"), cancellable = true, require = 0)
+    private void alloy$fabricIris(CallbackInfoReturnable<Boolean> cir) {
+        cir.setReturnValue(true);
+    }
+}

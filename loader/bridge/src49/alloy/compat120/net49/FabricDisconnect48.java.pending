@@ -1,0 +1,26 @@
+package alloy.compat120.net49;
+
+import io.netty.channel.ChannelHandlerContext;
+import net.fabricmc.fabric.impl.networking.NetworkHandlerExtensions;
+import net.minecraft.network.Connection;
+import net.minecraft.network.PacketListener;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.20.2 (Forge 48, Fabric API 0.91.6): prefit_strip.1.20.2.txt strips ClientConnectionMixin#disconnectAddon, because its
+ * variable modifier in Connection.disconnect does not fit Forge's patch. The strip goes by name and also took the other
+ * disconnectAddon, the channelInactive hook that tells Fabric's network addon the connection is gone. Without it Fabric's
+ * ServerPlayConnectionEvents.DISCONNECT and ClientPlayConnectionEvents.DISCONNECT never fired (lantest 1.20.2 d1: two
+ * joins, no "server leave"). This is that channelInactive hook, as Fabric wrote it.
+ */
+@Mixin(value = Connection.class, remap = false)
+public abstract class FabricDisconnect48 {
+    @Inject(method = "channelInactive", at = @At("HEAD"))
+    private void alloy$fabricDisconnect(ChannelHandlerContext ctx, CallbackInfo ci) {
+        PacketListener l = ((Connection) (Object) this).getPacketListener();   // a method call: remapped to srg with the game
+        if (l instanceof NetworkHandlerExtensions ext) ext.getAddon().handleDisconnect();
+    }
+}

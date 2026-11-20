@@ -1,0 +1,59 @@
+package alloy.compat120.biome;
+
+import net.minecraft.world.level.biome.Biome;
+import net.minecraftforge.common.world.ModifiableBiomeInfo;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * 1.21.1 (Forge 52): Fabric biome weather changes ({@code BiomeModificationContext.getWeather().setTemperature(...)} and the
+ * other three setters). Fabric's WeatherContextImpl reads and writes the vanilla field {@code Biome.climateSettings} through its
+ * access widener. Alloy drops that widening (aw_edits.1.21.1.txt) because Forge's coremod field_to_method.js stops on a widened
+ * field, so the setters threw IllegalAccessError when the integrated server started. On Forge the field is not what the game
+ * reads anyway: Biome reads {@code modifiableBiomeInfo().get().climateSettings()}.
+ *
+ * <p>Fix: the reads go to {@code getModifiedClimateSettings()}, a write puts the new climate into Forge's biome info: the
+ * original one (Forge's biome modifiers start from it when they run later at server start) and the modified one when Forge
+ * has already built it.
+ */
+public final class BiomeWeatherCompat120 {
+    private BiomeWeatherCompat120() {}
+
+    @Mixin(value = ModifiableBiomeInfo.class, remap = false)
+    public interface InfoAccess {
+        @Mutable
+        @Accessor(value = "originalBiomeInfo", remap = false)
+        void alloy$setOriginalBiomeInfo(ModifiableBiomeInfo.BiomeInfo info);
+
+        @Accessor(value = "modifiedBiomeInfo", remap = false)
+        ModifiableBiomeInfo.BiomeInfo alloy$getModifiedBiomeInfo();
+
+        @Accessor(value = "modifiedBiomeInfo", remap = false)
+        void alloy$setModifiedBiomeInfo(ModifiableBiomeInfo.BiomeInfo info);
+    }
+
+    @Mixin(targets = "net.fabricmc.fabric.impl.biome.modification.BiomeModificationContextImpl$WeatherContextImpl", remap = false)
+    public abstract static class Weather {
+        private static final String FIELD = "Lnet/minecraft/world/level/biome/Biome;climateSettings:Lnet/minecraft/world/level/biome/Biome$ClimateSettings;";
+
+        @Redirect(method = {"setPrecipitation", "setTemperature", "setTemperatureModifier", "setDownfall"}, remap = false, require = 12,
+                at = @At(value = "FIELD", opcode = 180, remap = false, target = FIELD))
+        private Biome.ClimateSettings alloy$read(Biome biome) {
+            return biome.getModifiedClimateSettings();
+        }
+
+        @Redirect(method = {"setPrecipitation", "setTemperature", "setTemperatureModifier", "setDownfall"}, remap = false, require = 4,
+                at = @At(value = "FIELD", opcode = 181, remap = false, target = FIELD))
+        private void alloy$write(Biome biome, Biome.ClimateSettings climate) {
+            ModifiableBiomeInfo info = biome.modifiableBiomeInfo();
+            InfoAccess access = (InfoAccess) info;
+            ModifiableBiomeInfo.BiomeInfo o = info.getOriginalBiomeInfo();
+            access.alloy$setOriginalBiomeInfo(new ModifiableBiomeInfo.BiomeInfo(climate, o.effects(), o.generationSettings(), o.mobSpawnSettings()));
+            ModifiableBiomeInfo.BiomeInfo m = access.alloy$getModifiedBiomeInfo();
+            if (m != null) access.alloy$setModifiedBiomeInfo(new ModifiableBiomeInfo.BiomeInfo(climate, m.effects(), m.generationSettings(), m.mobSpawnSettings()));
+        }
+    }
+}

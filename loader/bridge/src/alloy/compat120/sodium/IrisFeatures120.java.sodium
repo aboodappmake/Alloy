@@ -1,0 +1,134 @@
+package alloy.compat120support.sodium;
+
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.world.item.Item;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
+
+/**
+ * Iris 1.7.6 features whose hooks Forge 47 moved (mixin/IrisParticlesMixin120, IrisParticleEngineMixin120,
+ * IrisArmorMixin120). Iris is reached by reflection so the bridge compiles without it; the mixins are only added with Iris.
+ *
+ * Particle phases, same logic as Iris's fantastic MixinLevelRenderer and MixinParticleEngine: the shader pack's particle
+ * ordering (Iris ParticleRenderingSettings) is BEFORE (all particles before entities), MIXED (opaque ones before entities,
+ * translucent ones at the vanilla spot with Iris's translucent particle shader) or AFTER (all at the vanilla spot).
+ */
+public final class IrisFeatures120 {
+    private static final Logger LOG = LogManager.getLogger("Alloy/Iris");
+
+    public enum Phase { EVERYTHING, OPAQUE, TRANSLUCENT }
+
+    /** Iris MixinParticleEngine.OPAQUE_PARTICLE_RENDER_TYPES */
+    private static final List<ParticleRenderType> OPAQUE = List.of(ParticleRenderType.PARTICLE_SHEET_OPAQUE,
+            ParticleRenderType.PARTICLE_SHEET_LIT, ParticleRenderType.CUSTOM, ParticleRenderType.NO_RENDER);
+
+    /** set by the level renderer, read by ParticleEngine.render; render thread only */
+    public static Phase phase = Phase.EVERYTHING;
+
+    private static final MethodHandle PIPELINE_MANAGER, GET_PIPELINE, PARTICLE_SETTINGS, TRANSLUCENT_SHADER;
+    private static final MethodHandle ITEM_IDS, APPLY_AS_INT, NAMESPACED_ID, SET_RENDERED_ITEM;
+    private static final Object WORLD_SETTINGS, CAPTURED_STATE;
+    private static boolean logged;
+    private static final Set<Phase> SEEN = java.util.EnumSet.noneOf(Phase.class);
+    private static final Set<Item> ARMOR_SEEN = new java.util.HashSet<>();
+
+    static {
+        MethodHandles.Lookup l = MethodHandles.publicLookup();
+        MethodHandle pm = null, gp = null, ps = null, ts = null, ids = null, apply = null, nsid = null, sri = null;
+        Object ws = null, cs = null;
+        try {
+            ClassLoader cl = IrisFeatures120.class.getClassLoader();
+            Class<?> iris = IrisNames120.cls("net.irisshaders.iris.Iris");
+            Class<?> manager = IrisNames120.cls("net.irisshaders.iris.pipeline.PipelineManager");
+            Class<?> pipeline = IrisNames120.cls("net.irisshaders.iris.pipeline.WorldRenderingPipeline");
+            Class<?> settings = IrisNames120.cls("net.irisshaders.iris.shaderpack.properties.ParticleRenderingSettings");
+            Class<?> access = IrisNames120.cls("net.irisshaders.iris.pipeline.programs.ShaderAccess");
+            pm = l.findStatic(iris, "getPipelineManager", MethodType.methodType(manager));
+            gp = l.findVirtual(manager, "getPipeline", MethodType.methodType(Optional.class));
+            ps = l.findVirtual(pipeline, "getParticleRenderingSettings", MethodType.methodType(settings));
+            ts = l.findStatic(access, "getParticleTranslucentShader", MethodType.methodType(ShaderInstance.class));
+            Class<?> wrs = IrisNames120.cls("net.irisshaders.iris.shaderpack.materialmap.WorldRenderingSettings");
+            Class<?> o2i = Class.forName("it.unimi.dsi.fastutil.objects.Object2IntFunction", false, cl);
+            Class<?> nid = IrisNames120.cls("net.irisshaders.iris.shaderpack.materialmap.NamespacedId");
+            Class<?> crs = IrisNames120.cls("net.irisshaders.iris.uniforms.CapturedRenderingState");
+            ws = wrs.getField("INSTANCE").get(null);
+            cs = crs.getField("INSTANCE").get(null);
+            ids = l.findVirtual(wrs, "getItemIds", MethodType.methodType(o2i));
+            apply = l.findVirtual(o2i, "applyAsInt", MethodType.methodType(int.class, Object.class));
+            nsid = l.findConstructor(nid, MethodType.methodType(void.class, String.class, String.class));
+            sri = l.findVirtual(crs, "setCurrentRenderedItem", MethodType.methodType(void.class, int.class));
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            LOG.warn("Iris 1.7 classes not found; particle phases and armor ids stay off: {}", e.toString());
+        }
+        PIPELINE_MANAGER = pm; GET_PIPELINE = gp; PARTICLE_SETTINGS = ps; TRANSLUCENT_SHADER = ts;
+        ITEM_IDS = ids; APPLY_AS_INT = apply; NAMESPACED_ID = nsid; SET_RENDERED_ITEM = sri;
+        WORLD_SETTINGS = ws; CAPTURED_STATE = cs;
+    }
+
+    private IrisFeatures120() { }
+
+    /** "BEFORE", "MIXED" or "AFTER"; MIXED when there is no pipeline (Iris's default) */
+    public static String ordering() {
+        if (PIPELINE_MANAGER == null) return "AFTER";   // Iris not usable: one pass at the vanilla spot
+        String out;
+        try {
+            Optional<?> p = (Optional<?>) GET_PIPELINE.invoke(PIPELINE_MANAGER.invoke());
+            Object s = p.isEmpty() ? null : PARTICLE_SETTINGS.invoke(p.get());
+            out = s == null ? "MIXED" : ((Enum<?>) s).name();
+        } catch (Throwable t) {
+            out = "AFTER";
+        }
+        if (!logged) {
+            logged = true;
+            LOG.info("Iris particle ordering: {}", out);
+        }
+        return out;
+    }
+
+    /** the particle types to draw in the current phase, in Forge's order */
+    public static Set<ParticleRenderType> filter(Set<ParticleRenderType> types) {
+        if (phase == Phase.EVERYTHING) return types;
+        Set<ParticleRenderType> out = new LinkedHashSet<>();
+        for (ParticleRenderType t : types) if (OPAQUE.contains(t) == (phase == Phase.OPAQUE)) out.add(t);
+        if (!out.isEmpty() && SEEN.add(phase)) LOG.info("Iris particle phase {}: draws {} of {} particle types {}", phase, out.size(), types.size(), out);
+        return out;
+    }
+
+    public static Supplier<ShaderInstance> shader(Supplier<ShaderInstance> original) {
+        if (phase != Phase.TRANSLUCENT || TRANSLUCENT_SHADER == null) return original;
+        return () -> {
+            try {
+                return (ShaderInstance) TRANSLUCENT_SHADER.invoke();
+            } catch (Throwable t) {
+                return original.get();
+            }
+        };
+    }
+
+    /** Iris MixinHumanoidArmorLayer#changeId: shader packs get the armor item's id (item.properties) */
+    public static void armorItem(Item item) {
+        if (ITEM_IDS == null || item == null) return;
+        try {
+            Object ids = ITEM_IDS.invoke(WORLD_SETTINGS);
+            if (ids == null) return;
+            ResourceLocation key = BuiltInRegistries.ITEM.getKey(item);
+            int id = (int) APPLY_AS_INT.invoke(ids, NAMESPACED_ID.invoke(key.getNamespace(), key.getPath()));
+            SET_RENDERED_ITEM.invoke(CAPTURED_STATE, id);
+            if (ARMOR_SEEN.add(item)) LOG.info("Iris armor id for {}: {}", key, id);
+        } catch (Throwable t) {
+            // keep rendering; the id stays as it was
+        }
+    }
+}

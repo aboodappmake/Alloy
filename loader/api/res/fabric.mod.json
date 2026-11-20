@@ -1,0 +1,33 @@
+{
+ "schemaVersion": 1,
+ "id": "alloy_api",
+ "version": "${version}",
+ "name": "Alloy API",
+ "description": "Lets Fabric mods and Forge mods in one Alloy game find each other, share events and send messages. Does nothing outside Alloy.",
+ "license": "Apache-2.0",
+ "environment": "*",
+ "custom": {
+  "modmenu": {
+   "badges": [
+    "library"
+   ]
+  },
+  "alloy": {
+   "sides": [
+    "fabric",
+    "forge"
+   ],
+   "tested_versions": [
+    "0.1"
+   ],
+   "requires_isolation": false
+  }
+ },
+ "authors": [
+  "Alloy contributors"
+ ],
+ "contact": {
+  "sources": "https://github.com/aboodappmake/Alloy-Loader",
+  "issues": "https://github.com/aboodappmake/Alloy-Loader/issues"
+ }
+}

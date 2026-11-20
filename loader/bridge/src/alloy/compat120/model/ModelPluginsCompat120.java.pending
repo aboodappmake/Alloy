@@ -1,0 +1,29 @@
+package alloy.compat120.model;
+
+import net.fabricmc.fabric.impl.client.model.loading.ModelLoadingPluginManager;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.resources.model.ModelManager;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1: Fabric API's model loading plugins when another mod owns the reload future.
+ *
+ * <p>Fabric API's BakedModelManagerMixin redirects the thenCombineAsync in ModelManager.reload, puts the prepared plugins in
+ * ModelLoadingPluginManager.CURRENT_PLUGINS and builds the ModelBakery; its ModelLoaderMixin reads that ThreadLocal in the
+ * ModelBakery constructor. Enhanced Block Entities (Forge build) carries its own copy of that redirect. Collide turns EBE's into
+ * a @WrapOperation, but EBE's handler never calls the original, so Fabric's never runs and the ThreadLocal stays empty
+ * (Forgeulously Optimized: "plugins is null" in ModelLoadingEventDispatcher at the first resource load, then the game went on
+ * with Forge half loaded). When the ModelBakery is built without Fabric's plugins, they are prepared here, on this thread.
+ */
+@Mixin(value = ModelManager.class, remap = false)
+public abstract class ModelPluginsCompat120 {
+    @Inject(method = "lambda$reload$0", at = @At("HEAD"), require = 0)
+    private void alloy$fabricModelPlugins(CallbackInfoReturnable<?> cir) {
+        if (ModelLoadingPluginManager.CURRENT_PLUGINS.get() != null) return;
+        ModelLoadingPluginManager.CURRENT_PLUGINS.set(
+                ModelLoadingPluginManager.preparePlugins(Minecraft.getInstance().getResourceManager(), Runnable::run).join());
+    }
+}

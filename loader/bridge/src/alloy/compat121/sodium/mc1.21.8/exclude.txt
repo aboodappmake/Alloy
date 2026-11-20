@@ -1,0 +1,12 @@
+# Minecraft 1.21.8 (Forge 58, Sodium 0.7.3, Iris 1.9.6): shared files that do not fit
+# no per-layer RenderLevelStageEvent on Forge 58 (frame passes): Sodium keeps its Fabric hooks
+mixin/PlatformLevelRenderHooksMixin121.java.sodium121
+ForgeLevelRenderHooks121.java.sodium121
+# ShaderInstance is gone on 1.21.2+; the Iris particle phases are left out too
+mixin/IrisShaderInstanceMixin121.java.sodium121
+IrisShader121.java.sodium121
+mixin/ParticleEngineMixin121.java.sodium121
+mixin/IrisParticlesMixin121.java.sodium121
+IrisFeatures121.java.sodium121
+# 1.21.5+ ModelBlockRenderer works on BlockModelParts; Forge's 12-argument tesselateBlock is gone
+mixin/ModelBlockRendererMixin121.java.sodium121

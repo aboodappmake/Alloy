@@ -1,0 +1,47 @@
+package alloy.compat120.interaction;
+
+import com.llamalad7.mixinextras.sugar.Local;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Client half of Fabric API's UseEntityCallback on Forge 47, 48 and 49 (1.20.1, 1.20.2, 1.20.4).
+ *
+ * <p>Fabric's {@code MinecraftClientMixin#injectUseEntityCallback} captures the locals of {@code Minecraft.startUseItem} in
+ * vanilla order; Forge added its {@code InputEvent.InteractionKeyMappingTriggered} local there, so the capture fails hard and
+ * the injector is stripped (prefit_strip). This is the same hook at the same place (before {@code MultiPlayerGameMode.interactAt},
+ * once per hand, as in Fabric), reading the locals by type: startUseItem has one InteractionHand, one EntityHitResult and one
+ * Entity local on all three Forge versions (javap with -l). Only interactAt is hooked, not the interact call after it, so one
+ * use fires the callback once per hand tried, never twice for the same hand. A result other than PASS ends the use: a
+ * consuming result sends the interact packet itself (the server then fires its own UseEntityCallback once), shouldSwing swings.
+ */
+@Mixin(value = Minecraft.class, remap = false)
+public abstract class UseEntityClientCompat120 {
+    @Shadow public LocalPlayer player;
+
+    @Inject(method = "startUseItem()V", remap = false, cancellable = true,
+            at = @At(value = "INVOKE", remap = false,
+                    target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;interactAt(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/EntityHitResult;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;"))
+    private void alloy$useEntityCallback(CallbackInfo ci, @Local InteractionHand hand, @Local EntityHitResult hit, @Local Entity entity) {
+        InteractionResult result = UseEntityCallback.EVENT.invoker().interact(player, player.level(), hand, entity, hit);
+        if (result == InteractionResult.PASS) return;
+        if (result.consumesAction()) {
+            Vec3 at = hit.getLocation().subtract(entity.getX(), entity.getY(), entity.getZ());
+            ((Minecraft) (Object) this).getConnection().send(ServerboundInteractPacket.createInteractionPacket(entity, player.isShiftKeyDown(), hand, at));
+        }
+        if (result.shouldSwing()) player.swing(hand);
+        ci.cancel();
+    }
+}

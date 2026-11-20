@@ -1,0 +1,57 @@
+package alloy.compat120support.gui;
+
+import net.minecraft.client.gui.GuiGraphics;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+
+/**
+ * Fabric AppleSkin (2.5.x for 1.20.1) draws its hunger, saturation and exhaustion overlays from a mixin into
+ * Gui.renderPlayerHealth, which Forge's ForgeGui never calls. This calls the same two methods of its
+ * HUDOverlayHandler around ForgeGui.renderFood, which draws the food bar at the same place (39 px above the bottom).
+ * Only for the Fabric build: the Forge build of AppleSkin uses Forge's overlay events and is left alone.
+ */
+public final class AppleSkinHud120 {
+    private static boolean looked;
+    private static Object handler;
+    private static MethodHandle pre, post;
+
+    private AppleSkinHud120() { }
+
+    private static boolean ready() {
+        if (looked) return handler != null;
+        looked = true;
+        try {
+            if (!net.fabricmc.loader.api.FabricLoader.getInstance().isModLoaded("appleskin")) return false;
+            Class<?> c = Class.forName("squeek.appleskin.client.HUDOverlayHandler", true, AppleSkinHud120.class.getClassLoader());
+            MethodType t = MethodType.methodType(void.class, GuiGraphics.class);
+            MethodHandles.Lookup l = MethodHandles.publicLookup();
+            MethodHandle a = l.findVirtual(c, "onPreRender", t), b = l.findVirtual(c, "onRender", t);
+            Object h = c.getField("INSTANCE").get(null);
+            if (h == null) { looked = false; return false; }   // AppleSkin's client init has not run yet
+            pre = a;
+            post = b;
+            handler = h;
+            System.out.println("[alloy] AppleSkin (Fabric): food overlays drawn around Forge's food bar");
+        } catch (Throwable e) {
+            handler = null;
+        }
+        return handler != null;
+    }
+
+    public static void pre(GuiGraphics g) {
+        if (!ready()) return;
+        try { pre.invoke(handler, g); } catch (Throwable e) { fail(e); }
+    }
+
+    public static void post(GuiGraphics g) {
+        if (!ready()) return;
+        try { post.invoke(handler, g); } catch (Throwable e) { fail(e); }
+    }
+
+    private static void fail(Throwable e) {
+        System.err.println("[alloy] AppleSkin overlay turned off: " + e);
+        handler = null;
+    }
+}

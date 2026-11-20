@@ -1,0 +1,27 @@
+package alloy.compat121support.sodium;
+
+import net.caffeinemc.mods.sodium.client.services.SodiumModelData;
+import net.minecraftforge.client.model.data.ModelData;
+
+/**
+ * Forge's ModelData as Sodium's SodiumModelData marker. NeoForge Sodium mixes the marker into ModelData itself; Alloy does
+ * not change a Forge class (Forge classes live in FML's layer), so the data travels in this small wrapper.
+ */
+public final class ForgeModelData121 implements SodiumModelData {
+    public static final ForgeModelData121 EMPTY = new ForgeModelData121(ModelData.EMPTY);
+
+    public final ModelData data;
+
+    private ForgeModelData121(ModelData data) {
+        this.data = data;
+    }
+
+    public static SodiumModelData wrap(ModelData d) {
+        return d == null || d == ModelData.EMPTY ? EMPTY : new ForgeModelData121(d);
+    }
+
+    /** Forge ModelData of a Sodium marker; ModelData.EMPTY for null or anything that is not Alloy's wrapper. */
+    public static ModelData unwrap(Object o) {
+        return o instanceof ForgeModelData121 w ? w.data : ModelData.EMPTY;
+    }
+}

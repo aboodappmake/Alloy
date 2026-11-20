@@ -1,0 +1,186 @@
+{
+ "schema": 1,
+ "id": "1.20.2",
+ "status": "client in the installer since branch beta05 (fitted Fabric API, SRG Forge 48 through the name translator)",
+ "source": "Forge 48.1.0 installer version.json / install_profile.json (maven.minecraftforge.net), maven.fabricmc.net",
+ "minecraft": "1.20.2",
+ "forge": {
+  "version": "48.1.0",
+  "full": "1.20.2-48.1.0",
+  "installer": "net.minecraftforge:forge:1.20.2-48.1.0:installer",
+  "fmlFamily": "fml48",
+  "mainClass": "net.minecraftforge.bootstrap.BootstrapLauncher",
+  "launchTarget": {
+   "client": "forge_client",
+   "server": "forge_server"
+  },
+  "launchArgs": [
+   "--fml.forgeVersion",
+   "48.1.0",
+   "--fml.mcVersion",
+   "1.20.2",
+   "--fml.forgeGroup",
+   "net.minecraftforge",
+   "--fml.mcpVersion",
+   "20230921.100330"
+  ],
+  "launchHandler": {
+   "client": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Client",
+   "server": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Server"
+  },
+  "runtimeNames": "srg (MCP 20230921.100330)",
+  "coremods": "javascript (coremods 5.1.0 on nashorn 15.3), applied at runtime by Bridge.coreMods47",
+  "libraries": [
+   "net.minecraftforge:unsafe:0.9.2",
+   "net.minecraftforge:securemodules:2.2.3",
+   "org.ow2.asm:asm:9.6",
+   "org.ow2.asm:asm-tree:9.6",
+   "org.ow2.asm:asm-util:9.6",
+   "org.ow2.asm:asm-commons:9.6",
+   "org.ow2.asm:asm-analysis:9.6",
+   "net.minecraftforge:accesstransformers:8.1.1",
+   "org.antlr:antlr4-runtime:4.9.1",
+   "net.minecraftforge:eventbus:6.2.0",
+   "net.jodah:typetools:0.6.3",
+   "net.minecraftforge:forgespi:7.1.0",
+   "net.minecraftforge:coremods:5.1.0",
+   "org.openjdk.nashorn:nashorn-core:15.3",
+   "net.minecraftforge:modlauncher:10.1.1",
+   "net.minecraftforge:mergetool-api:1.0",
+   "com.electronwill.night-config:toml:3.6.4",
+   "com.electronwill.night-config:core:3.6.4",
+   "org.apache.maven:maven-artifact:3.8.5",
+   "net.minecrell:terminalconsoleappender:1.2.0",
+   "org.jline:jline-reader:3.12.1",
+   "org.jline:jline-terminal:3.12.1",
+   "org.spongepowered:mixin:0.8.5",
+   "net.minecraftforge:JarJarFileSystems:0.3.19",
+   "net.minecraftforge:JarJarSelector:0.3.19",
+   "net.minecraftforge:JarJarMetadata:0.3.19",
+   "net.minecraftforge:bootstrap:1.2.0",
+   "com.google.guava:guava:32.1.2-jre",
+   "com.google.guava:failureaccess:1.0.1",
+   "net.minecraftforge:fmlloader:1.20.2-48.1.0",
+   "net.minecraftforge:fmlearlydisplay:1.20.2-48.1.0"
+  ],
+  "mcp": "20230921.100330"
+ },
+ "fabric": {
+  "loader": "0.20.1",
+  "api": "0.91.6+1.20.2",
+  "mixin": "0.17.5+mixin.0.8.7",
+  "mixinExtras": "0.5.5 (bundled in Fabric Loader 0.20.1)",
+  "runtimeNames": "intermediary (remap to Mojang ahead of time, as on 1.20.4)",
+  "apiPrefit": "fabric-api-0.91.6+1.20.2-alloy.jar",
+  "apiPrefitNote": "made by launch120.py mods + installer/fit120.py (installer/build120.py --mc 1.20.2), branded by make_prefit.py into installer/res/prefit"
+ },
+ "java": {
+  "run": 21,
+  "release": 17,
+  "asm": "9.10.1",
+  "note": "the bridge compiles with --release 17 (Forge's jars are Java 17 class files)",
+  "asmNote": "9.10.1 for Alloy's tools"
+ },
+ "mappings": {
+  "runtime": "mojang",
+  "forge": "srg",
+  "fabric": "intermediary",
+  "mojang": "piston-meta 1.20.2 version json, downloads.client_mappings / server_mappings",
+  "srg": "de.oceanlabs.mcp:mcp_config:1.20.2-20230921.100330@zip",
+  "intermediary": "net.fabricmc:intermediary:1.20.2:v2"
+ },
+ "versionStrings": {
+  "values": {
+   "minecraft": "1.20.2",
+   "forge": "48.1.0",
+   "fabricApi": "0.91.6",
+   "modlauncher": "10.1.1",
+   "asm": "9.10.1",
+   "mixinExtras": "0.5.5"
+  }
+ },
+ "tools": {
+  "note": "Parameters of launch120.py (ALLOY_MC=1.20.2). Zero-mod boot: launch120.py vanilla, game, fml, bridge, run --game-jar <work>/game-srg.jar --naming srg",
+  "mc": "1.20.2",
+  "forge": "48.1.0",
+  "mcp": "20230921.100330",
+  "group": "net.minecraftforge",
+  "fmlFamily": "fml48",
+  "buildTags": [
+   "fml48"
+  ],
+  "work": "run/families/1.20.2",
+  "fmlJars": [
+   "net/minecraftforge/fmlcore/1.20.2-48.1.0/fmlcore-1.20.2-48.1.0.jar",
+   "net/minecraftforge/fmlloader/1.20.2-48.1.0/fmlloader-1.20.2-48.1.0.jar",
+   "net/minecraftforge/forge/1.20.2-48.1.0/forge-1.20.2-48.1.0-universal.jar",
+   "net/minecraftforge/javafmllanguage/1.20.2-48.1.0/javafmllanguage-1.20.2-48.1.0.jar",
+   "net/minecraftforge/lowcodelanguage/1.20.2-48.1.0/lowcodelanguage-1.20.2-48.1.0.jar",
+   "net/minecraftforge/mclanguage/1.20.2-48.1.0/mclanguage-1.20.2-48.1.0.jar",
+   "net/minecraftforge/modlauncher/10.1.1/modlauncher-10.1.1.jar",
+   "net/minecraftforge/eventbus/6.2.0/eventbus-6.2.0.jar",
+   "net/minecraftforge/coremods/5.1.0/coremods-5.1.0.jar",
+   "net/minecraftforge/accesstransformers/8.1.1/accesstransformers-8.1.1.jar"
+  ],
+  "forgeSkip": [
+   "org.spongepowered:mixin",
+   "org.ow2.asm:",
+   "net.minecraftforge:bootstrap:",
+   "net.minecraftforge:bootstrap-api:",
+   "net.minecraftforge:forge:1.20.2-48.1.0:client"
+  ],
+  "extraForgeLibs": [
+   "fmlcore",
+   "javafmllanguage",
+   "lowcodelanguage",
+   "mclanguage"
+  ],
+  "systemLibraries": [
+   "securemodules"
+  ],
+  "res": "res49",
+  "srcOverlays": [
+   "src49",
+   "src47"
+  ],
+  "gameJars": [
+   "net/minecraftforge/forge/1.20.2-48.1.0/forge-1.20.2-48.1.0-client.jar",
+   "net/minecraft/client/1.20.2-20230921.100330/client-1.20.2-20230921.100330-srg.jar",
+   "net/minecraft/client/1.20.2-20230921.100330/client-1.20.2-20230921.100330-extra.jar"
+  ],
+  "release": 17,
+  "naming": "srg",
+  "compatLists": {
+   "replaces": "compat_replaces.1.20.2.txt",
+   "strip": "prefit_strip.1.20.2.txt",
+   "aw": "aw_edits.1.20.2.txt",
+   "enable": "compat_enable.1.20.2.txt"
+  },
+  "mappingUrls": {
+   "intermediary": "https://maven.fabricmc.net/net/fabricmc/intermediary/1.20.2/intermediary-1.20.2-v2.jar",
+   "mcp": "https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp_config/1.20.2-20230921.100330/mcp_config-1.20.2-20230921.100330.zip"
+  },
+  "remapWork": "run/families/1.20.2/name-translator",
+  "srcPick": {
+   "worldsafe/WorldOpenMixin": "src47"
+  },
+  "srcShared": [
+   "api/impl/ApiNetwork",
+   "api/impl/ApiNetworkClient"
+  ],
+  "compatExtraMixins": {
+   "mixins": [
+    "net49.ForgePayloadsStayForge49$ToClient",
+    "net49.ForgePayloadsStayForge49$ToServer",
+    "net49.FabricDisconnect48"
+   ],
+   "client": [
+    "client49.QuickPlayForgeBus49",
+    "net49.FabricLoginQuery49"
+   ]
+  },
+  "net120": false,
+  "net120Note": "Forge 48 has the Forge 49 payload shapes: net49 (compatExtraMixins), not compat120/net"
+ },
+ "tested": {}
+}

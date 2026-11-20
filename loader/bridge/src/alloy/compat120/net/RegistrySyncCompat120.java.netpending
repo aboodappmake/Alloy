@@ -1,0 +1,59 @@
+package alloy.compat120.net;
+
+import java.util.Map;
+import it.unimi.dsi.fastutil.objects.Object2IntMap;
+import net.fabricmc.fabric.impl.registry.sync.RegistrySyncManager;
+import net.fabricmc.fabric.impl.registry.sync.RemapException;
+import net.fabricmc.fabric.impl.registry.sync.RemappableRegistry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92): Fabric's registry sync must never take a registry that Forge owns.
+ *
+ * <p>Forge 47 wraps every registry it knows in a NamespacedWrapper (a MappedRegistry subclass that keeps its ids in a
+ * ForgeRegistry and never reads MappedRegistry's own id maps). Forge syncs those itself during login. Today Fabric leaves them
+ * out because the wrapper's registerMapping never marks them MODDED. This guard makes that a rule: Fabric neither sends nor
+ * saves (createAndPopulateRegistryMap) nor remaps (apply) a Forge-wrapped registry. A remap there would rewrite maps the
+ * wrapper does not use (a silent no-op) or end in a RemapException.
+ */
+@Mixin(value = RegistrySyncManager.class, remap = false)
+public abstract class RegistrySyncCompat120 {
+    @Unique private static final Logger ALLOY$LOG = LoggerFactory.getLogger("Alloy");
+    @Unique private static final java.util.Set<String> ALLOY$WARNED = java.util.concurrent.ConcurrentHashMap.newKeySet();
+
+    @Unique
+    private static boolean alloy$forgeWrapped(Object registry) {
+        for (Class<?> c = registry == null ? null : registry.getClass(); c != null; c = c.getSuperclass())
+            if (c.getName().equals("net.minecraftforge.registries.NamespacedWrapper")) return true;
+        return false;
+    }
+
+    /** The first Map.put in createAndPopulateRegistryMap is map.put(registryId, idMap): leave Forge's registries out. */
+    @Redirect(method = "createAndPopulateRegistryMap", at = @At(value = "INVOKE", target = "Ljava/util/Map;put(Ljava/lang/Object;Ljava/lang/Object;)Ljava/lang/Object;", ordinal = 0))
+    @SuppressWarnings({"rawtypes", "unchecked"})
+    private static Object alloy$skipForgeRegistry(Map map, Object key, Object value) {
+        if (key instanceof ResourceLocation id && alloy$forgeWrapped(BuiltInRegistries.REGISTRY.get(id))) {
+            if (ALLOY$WARNED.add("map " + id))
+                ALLOY$LOG.info("Alloy net compat: Fabric registry sync skips {} (owned by Forge's registry sync)", id);
+            return null;
+        }
+        return map.put(key, value);
+    }
+
+    @Redirect(method = "apply", at = @At(value = "INVOKE", target = "Lnet/fabricmc/fabric/impl/registry/sync/RemappableRegistry;remap(Ljava/lang/String;Lit/unimi/dsi/fastutil/objects/Object2IntMap;Lnet/fabricmc/fabric/impl/registry/sync/RemappableRegistry$RemapMode;)V"))
+    private static void alloy$noForgeRemap(RemappableRegistry registry, String name, Object2IntMap<ResourceLocation> ids, RemappableRegistry.RemapMode mode) throws RemapException {
+        if (alloy$forgeWrapped(registry)) {
+            if (ALLOY$WARNED.add("remap " + name))
+                ALLOY$LOG.warn("Alloy net compat: not remapping {} with Fabric's registry data ({} entries); Forge owns its ids", name, ids.size());
+            return;
+        }
+        registry.remap(name, ids, mode);
+    }
+}

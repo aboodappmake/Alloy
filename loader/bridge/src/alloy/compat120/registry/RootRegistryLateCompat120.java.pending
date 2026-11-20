@@ -1,0 +1,36 @@
+package alloy.compat120.registry;
+
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceKey;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.20.1, only with -Dalloy.fabricAfterForge=true (not in the default mixin list; add "registry.RootRegistryLateCompat120" to
+ * alloy.compat120.mixins.json to use it): Fabric's main entrypoints then run after Forge 47's registry events,
+ * and by then Forge has frozen the root registry (BuiltInRegistries.REGISTRY). A Fabric mod that creates its own registry in
+ * onInitialize (FabricRegistryBuilder; BCLib's worlds_together biome codec registry) then failed with "Registry is already
+ * frozen (trying to add key minecraft:root / ...)". New registries from non-Forge code may still be added to the root
+ * registry; Forge's own late additions keep the error. Other vanilla registries keep their freeze (Forge-managed ones go
+ * through NamespacedWrapperLateRegister120).
+ */
+@Mixin(value = MappedRegistry.class, remap = false)
+public abstract class RootRegistryLateCompat120<T> {
+    @Shadow private boolean frozen;
+
+    @Inject(method = "validateWrite(Lnet/minecraft/resources/ResourceKey;)V", at = @At("HEAD"), cancellable = true)
+    private void alloy$lateRootRegistry(ResourceKey<T> key, CallbackInfo ci) {
+        if (frozen && (Object) this == BuiltInRegistries.REGISTRY && !calledByForge()) ci.cancel();
+    }
+
+    private static boolean calledByForge() {
+        return StackWalker.getInstance().walk(frames -> frames
+                .map(f -> f.getClassName())
+                .filter(n -> !n.startsWith("net.minecraft.") && !n.startsWith("alloy.compat120.") && !n.startsWith("java.") && !n.startsWith("jdk."))
+                .findFirst().map(n -> n.startsWith("net.minecraftforge.")).orElse(false));
+    }
+}

@@ -1,0 +1,17 @@
+{
+ "required": true,
+ "minVersion": "0.8",
+ "package": "alloy.worldsafe",
+ "compatibilityLevel": "JAVA_17",
+ "mixins": [
+  "WorldSafeMixins$Access",
+  "WorldSafeMixins$Save",
+  "WorldSafeMixins$Players"
+ ],
+ "client": [
+  "WorldOpenMixin"
+ ],
+ "injectors": {
+  "defaultRequire": 0
+ }
+}

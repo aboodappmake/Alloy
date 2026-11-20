@@ -1,0 +1,35 @@
+package alloy.compat120.recipe;
+
+import net.minecraft.core.HolderLookup;
+import net.minecraft.world.item.crafting.RecipeManager;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Minecraft 1.21.4 to 1.21.8 (Forge 54 to 58, bridge/src54): fabric-resource-loader-v0's ServerRecipeManagerMixin keeps the registries
+ * in a field of its own and sets it from the vanilla RecipeManager(Provider) constructor. Forge builds the manager with
+ * its own RecipeManager(Provider, ICondition.IContext) constructor, so that field stays null and the first data reload
+ * (creating or opening a world) stopped with a NullPointerException in fabric_getRegistries.
+ *
+ * <p>After Forge's constructor this fills every still empty HolderLookup.Provider field of the manager with the same
+ * registries. The field is found by type, not by name, because Mixin may rename a mixin field that clashes with Forge's own.
+ */
+@Mixin(value = RecipeManager.class, remap = false, priority = 1100)
+public abstract class RecipeManagerRegistriesCompat121 {
+    @Inject(method = "<init>(Lnet/minecraft/core/HolderLookup$Provider;Lnet/minecraftforge/common/crafting/conditions/ICondition$IContext;)V",
+            at = @At("RETURN"), require = 0)
+    private void alloy$fabricRegistries(HolderLookup.Provider registries, net.minecraftforge.common.crafting.conditions.ICondition.IContext context,
+                                        CallbackInfo ci) {
+        for (java.lang.reflect.Field f : RecipeManager.class.getDeclaredFields()) {
+            if (f.getType() != HolderLookup.Provider.class || java.lang.reflect.Modifier.isStatic(f.getModifiers())) continue;
+            try {
+                f.setAccessible(true);
+                if (f.get(this) == null) f.set(this, registries);
+            } catch (ReflectiveOperationException | RuntimeException e) {
+                alloy.Bridge.LOG.warn("Alloy: cannot set {} of RecipeManager: {}", f.getName(), e.toString());
+            }
+        }
+    }
+}

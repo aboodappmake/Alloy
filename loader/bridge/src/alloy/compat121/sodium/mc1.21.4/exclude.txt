@@ -1,0 +1,11 @@
+# Minecraft 1.21.4 (Forge 54, Sodium 0.6.13, Iris 1.8.8): shared files that do not fit
+# Forge 54 has no per-layer RenderLevelStageEvent (Sodium's hook gained a Level argument): Sodium keeps its Fabric hooks
+mixin/PlatformLevelRenderHooksMixin121.java.sodium121
+ForgeLevelRenderHooks121.java.sodium121
+# ShaderInstance is gone on 1.21.2+
+mixin/IrisShaderInstanceMixin121.java.sodium121
+IrisShader121.java.sodium121
+# Forge 54's 3-argument ParticleEngine.render calls the Frustum overload (no self call); the particle phases are left out too
+mixin/ParticleEngineMixin121.java.sodium121
+mixin/IrisParticlesMixin121.java.sodium121
+IrisFeatures121.java.sodium121

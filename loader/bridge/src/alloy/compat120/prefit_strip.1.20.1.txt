@@ -1,0 +1,289 @@
+# Fabric API 0.92.12+1.20.1 on Forge 47.4.29: injectors that cannot apply (docs/fabric-1.20.1.md section 5.1, "strip").
+# The feature is off until a compat120 mixin exists. Same format as compat_replaces.txt (config:mixin#handler).
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#canUseAsFuelRedirect
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#getFuelTimeRedirect
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin#addRemove
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin#addReplaced
+fabric-dimensions-v1.mixins.json:EntityMixin#stopEndSpecificBehavior
+fabric-dimensions-v1.mixins.json:RegistryCodecsMixin#modifyCodecLocalVariable
+#alloy: restored by model/ModelBakerCompat120
+fabric-model-loading-api-v1.mixins.json:ModelLoaderBakerImplMixin#invokeModifyBeforeBake
+#alloy: end-restored
+#alloy: restored by model/ModelBakerCompat120
+fabric-model-loading-api-v1.mixins.json:ModelLoaderBakerImplMixin#invokeModifyAfterBake
+#alloy: end-restored
+fabric-registry-sync-v0.mixins.json:StructuresToConfiguredStructuresFixMixin#findUpdatedStructureType
+fabric-renderer-api-v1.mixins.json:client.OverlayVertexConsumerMixin#redirectGetFacing
+fabric-renderer-indigo.mixins.json:ChunkBuilderBuiltChunkRebuildTaskMixin#hookChunkBuildTessellate
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#getOverlayBlock
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#modSideSpriteForOverlay
+# gui.AfterTranslucentCompat120 sets Fabric's didRenderParticles flag after Forge's particle render, so AFTER_TRANSLUCENT fires again
+#alloy: restored by gui/AfterTranslucentCompat120
+fabric-rendering-v1.mixins.json:WorldRendererMixin#onRenderParticles
+#alloy: end-restored
+# the screen key, render and tick events below come back through gui.ScreenEventsCompat120 (wraps Forge's calls)
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyPressedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyPressedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyReleasedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyReleasedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onBeforeRenderScreen
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onAfterRenderScreen
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#beforeScreenTick
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#afterScreenTick
+#alloy: end-restored
+fabric-sound-api-v1.mixins.json:SoundSystemMixin#getStream
+# Found by the first boot with -Dalloy.conflicts=true (2026-11-12), not in the static check:
+# locals capture that no longer matches Forge's method (critical injection failure)
+#alloy: restored by interaction/UseEntityClientCompat120
+fabric-events-interaction-v0.client.mixins.json:MinecraftClientMixin#injectUseEntityCallback
+#alloy: end-restored
+# MODIFY_SLEEPING_DIRECTION null = cannot sleep: entityevents.SleepCompat120$ServerPlayerSleepTime#alloy$nullSleepDirection
+#alloy: restored by entityevents/SleepCompat120
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#onTrySleepDirectionCheck
+#alloy: end-restored
+fabric-transfer-api-v1.mixins.json:HopperBlockEntityMixin#hookExtract
+fabric-particles-v1.client.mixins.json:BlockDustParticleMixin#removeUntintableParticles
+# whole mixins: Forge 47 changed the shadowed field (BlockColors/ItemColors/ParticleEngine use maps keyed by registry
+# entries, LootTable.pools is a List), Forge's ShaderInstance constructor delegates to this(), and Forge's TagFile already
+# has remove() (Forge reads "remove" in tag files itself)
+fabric-registry-sync-v0.client.mixins.json:BlockColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ItemColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ParticleManagerMixin
+#alloy: restored by loot/LootSupplierCompat120
+fabric-loot-tables-v1.mixins.json:LootTableMixin
+#alloy: end-restored
+fabric-rendering-v1.mixins.json:shader.ShaderProgramMixin
+fabric-tag-api-v1.mixins.json:TagFileMixin
+# ColorProviderRegistry: Forge 47 BlockColors/ItemColors keep providers in maps, not IdMapper. These two mixins were also the only
+# callers of ColorProviderRegistryImpl.initialize; color/BlockColorsCompat120 and ItemColorsCompat120 do both jobs on Forge's maps
+#alloy: restored by color/BlockColorsCompat120
+fabric-rendering-v1.mixins.json:BlockColorsMixin
+#alloy: end-restored
+#alloy: restored by color/ItemColorsCompat120
+fabric-rendering-v1.mixins.json:ItemColorsMixin
+#alloy: end-restored
+# Fabric mods (not Fabric API)
+# Mod Menu 7.2.2: changes the version text in TitleScreen.render; Forge 47 draws that text through BrandingControl
+mixins.modmenu.json:MixinTitleScreen#onRender
+# Forge 47 patches ShaderInstance$1.applyImport for namespaced imports itself (ForgeHooksClient.getShaderImportLocation)
+fabric-rendering-v1.mixins.json:shader.ShaderProgramImportProcessorMixin
+# Fabric mods, found with -Dalloy.conflicts=true (wide 1.20.1 mod set). Sodium 0.5.13: Forge 47 changed the window hints,
+# chunk builder thread count, sprite mipmap call and the 3-argument getQuads of multipart/weighted models
+sodium.mixins.json:core.WindowMixin#setAdditionalWindowHints
+sodium.mixins.json:core.render.world.ChunkBuilderMixin#modifyThreadPoolSize
+sodium.mixins.json:features.textures.mipmaps.SpriteContentsMixin#sodium$beforeGenerateMipLevels
+sodium.mixins.json:features.model.MultipartBakedModelMixin
+sodium.mixins.json:features.model.WeightedBakedModelMixin
+# ImmediatelyFast 1.5.5: GuiGraphics.renderTextIntoBuffer differs on Forge 47 (HUD text batching in GuiGraphics is off)
+immediatelyfast-fabric.mixins.json:hud_batching.consumer.MixinDrawContext
+# Language Reload 1.7.5: Forge 47 renamed the search tree lambdas (fallback translations in creative search are off)
+languagereload.mixins.json:MinecraftClientMixin#addFallbackTranslationsToSearchTooltips
+# Fabric's client start hook calls BuiltInRegistries.bootStrap() again, which freezes every built-in registry while Forge
+# mods are still loading (common setup registers loot functions, structure pieces, ... into them). Forge freezes them itself
+# at FREEZE_DATA. Lost: Fabric's late BlockInitTracker pass and its CreativeModeTabs.validate().
+fabric-registry-sync-v0.client.mixins.json:MinecraftClientMixin#onStart
+# Iris 1.7.6 (static check). Forge 47 changed these targets.
+# Vanilla chunk rebuild task (Forge 47 calls a different renderBatched). Unused while Sodium meshes the chunks.
+mixins.iris.vertexformat.json:block_rendering.MixinChunkRebuildTask#iris$onRenderBlock
+mixins.iris.vertexformat.json:block_rendering.MixinChunkRebuildTask#iris$finishRenderingBlock
+# owo-lib: captureClickedSlot captures locals of AbstractContainerScreen.mouseClicked, where Forge added an InputConstants.Key
+# local before them (LVT incompatible, crash while loading Minecraft). Lost: owo's slot click capture for its UI layers.
+owo.mixins.json:ui.HandledScreenMixin#captureClickedSlot
+# owo-lib: fixIdentifier (@ModifyArg in ShaderInstance.<init>) lands before Forge's this(provider, new ResourceLocation(name), format)
+# call, which Mixin refuses for a non-static handler; the whole mixin class then fails and owo's shader accessor is missing
+# (ClassCastException in GlProgram.findUniform). Forge's ResourceLocation constructor already keeps the namespace, so nothing is lost.
+owo.mixins.json:shader.ShaderProgramMixin#fixIdentifier
+# KubeJS pack test (Zombie Invade 100 Days pack): Smooth Scroll's @ModifyVariable + @Local on renderSlot fails on Forge's
+# AbstractContainerScreen ("LVTGeneratorError: Could not locate method metadata for renderSlot"). The whole mixin goes
+# (smooth scrolling of container slots off); its other mixins still apply.
+smoothscroll.mixins.json:CreativeScreen.HandledScreenMixin
+# 1.20.1 client-qol lane test (2026-11-12, -Dalloy.conflicts=true boot with Debugify 2.0 and Controlify 2.1.2):
+# Debugify MC-577: captures locals of AbstractContainerScreen.mouseReleased, which Forge reshaped (crash on load). Bug fix off.
+debugify.client.mixins.json:basic.mc577.AbstractContainerScreenMixin#dropWithMouse
+# Debugify MC-93384: @ModifyArg target in LivingEntity is gone on Forge (crash while loading LivingEntity). Bug fix off.
+debugify.client.mixins.json:basic.mc93384.LivingEntityMixin#modifyY
+# Debugify MC-121706: Forge's RangedBowAttackGoal keeps the mob in a field of another type, so the @Shadow fails and Debugify
+# skips the class with an error. Stripped so the log stays clean. Bug fix off.
+debugify.mixins.json:basic.mc121706.RangedBowAttackGoalMixin
+# Controlify: villager trade list scrolling with a controller (accumulateScrolling, resetAccumulatedScroll); Forge changed MerchantScreen.mouseScrolled.
+controlify.mixins.json:feature.screenop.vanilla.MerchantScreenMixin
+# Tools test lane (conflict boot, MaLiLib 0.16.3, Carpet 1.4.112, ReplayMod 2.6.23):
+# MaLiLib: item tooltip hook in AbstractContainerScreen.renderTooltip (Forge renders tooltips through its own hooks).
+# Lost: MaLiLib's container tooltip callback (MiniHUD/Tweakeroo shulker box preview in inventories).
+mixins.malilib.json:MixinHandledScreen#onRenderTooltip
+# Carpet: these targets are reshaped by Forge (constant gone, locals changed, isSticky now on IForgeBlock, spawner call).
+# Lost: fillUpdates setting, the antiCheatDisabled eye position check, scarpet block-broken and entity-added events, custom sticky blocks, and the spawn tracker hook.
+carpet.mixins.json:Level_fillUpdatesMixin
+carpet.mixins.json:ServerPlayerGameMode_antiCheatMixin#getEyePos
+carpet.mixins.json:ServerPlayerGameMode_scarpetEventsMixin#onBlockBroken
+carpet.mixins.json:PersistentEntitySectionManager_scarpetMixin#handleAddedEntity
+carpet.mixins.json:NaturalSpawnerMixin#spawnEntity
+carpet.mixins.json:PistonStructureResolver_customStickyMixin
+# ReplayMod: scroll handler captures locals of MouseHandler.onScroll, which Forge changed (LVT incompatible, critical).
+# Lost: changing the replay speed with the scroll wheel.
+mixins.recording.replaymod.json:MixinMouseHelper#handleReplayModScroll
+# 1.20.1 perf-server lane test (conflict boot, Lithium 0.11.4, VMP 0.2.0+beta.7.102):
+# Lithium's hopper rewrite and inventory change tracking: Forge reshaped HopperBlockEntity.ejectItems (Forge's item handler
+# hook), ChestBlockEntity.setBlockState and Level.setBlock locals; the parts depend on each other, so the whole feature
+# group is off (lithium.properties mixin.block.hopper and mixin.util.inventory_change_listening). Fluid pushing shortcut:
+# Forge rewrote updateFluidHeightAndDoFluidPushing for fluid types. Hoppers then run vanilla/Forge code (Forge's IItemHandler
+# hooks work, which Lithium's rewrite would have skipped).
+lithium.mixins.json:block.hopper.AbstractMinecartEntityMixin
+lithium.mixins.json:block.hopper.ChestBoatEntityMixin
+lithium.mixins.json:block.hopper.ComposterMixin$ComposterBlockComposterInventoryMixin
+lithium.mixins.json:block.hopper.ComposterMixin$ComposterBlockDummyInventoryMixin
+lithium.mixins.json:block.hopper.ComposterMixin$ComposterBlockFullComposterInventoryMixin
+lithium.mixins.json:block.hopper.DefaultedListAccessor
+lithium.mixins.json:block.hopper.DoubleInventoryAccessor
+lithium.mixins.json:block.hopper.EntityAccessor
+lithium.mixins.json:block.hopper.EntityDataObjectMixin
+lithium.mixins.json:block.hopper.EntityTrackingSectionAccessor
+lithium.mixins.json:block.hopper.HopperBlockEntityMixin
+lithium.mixins.json:block.hopper.HopperBlockMixin
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorAbstractFurnaceBlockEntity
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorBarrelBlockEntity
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorBrewingStandBlockEntity
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorChestBlockEntity
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorDispenserBlockEntity
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorHopperBlockEntity
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorShulkerBoxBlockEntity
+lithium.mixins.json:block.hopper.InventoryAccessors$InventoryAccessorStorageMinecartEntity
+lithium.mixins.json:block.hopper.InventoryMixin
+lithium.mixins.json:block.hopper.ItemStackMixin
+lithium.mixins.json:block.hopper.ScreenHandlerMixin
+lithium.mixins.json:block.hopper.TypeFilterableListMixin
+lithium.mixins.json:block.hopper.WorldMixin
+lithium.mixins.json:block.hopper.worldedit_compat.WorldChunkMixin
+lithium.mixins.json:entity.collisions.fluid.EntityMixin
+lithium.mixins.json:entity.hopper_minecart.HopperBlockEntityMixin
+lithium.mixins.json:util.inventory_change_listening.BlockEntityMixin
+lithium.mixins.json:util.inventory_change_listening.ChestBlockEntityMixin
+lithium.mixins.json:util.inventory_change_listening.LockableContainerBlockEntityMixin
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$InventoryChangeTrackingAbstractFurnaceBlockEntity
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$InventoryChangeTrackingBarrelBlockEntity
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$InventoryChangeTrackingBrewingStandBlockEntity
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$InventoryChangeTrackingChestBlockEntity
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$InventoryChangeTrackingDispenserBlockEntity
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$InventoryChangeTrackingHopperBlockEntity
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$InventoryChangeTrackingShulkerBoxBlockEntity
+lithium.mixins.json:util.inventory_change_listening.StackListReplacementTracking$StackListReplacementTrackingLockableContainerBlockEntity
+lithium.mixins.json:world.block_entity_ticking.sleeping.hopper.HopperBlockEntityMixin
+# VMP: event loop choice in Connection.setProtocol; Forge changed that method. Lost: VMP's separate client event loops.
+vmp.mixins.json:networking.eventloops.MixinClientConnection
+# 1.20.1 worldgen lane test (conflict boot, BetterEnd/BetterNether/BCLib, Wilder Wild 3.0.7 + FrozenLib 1.9.3):
+# Reach Entity Attributes (nested library): every reach check it patches was rewritten by Forge around its own
+# forge:block_reach / forge:entity_reach attributes (constants gone). Lost: REA's reach attributes; Forge's still apply.
+mixins.reach-entity-attributes.json:InventoryValidationMixin
+mixins.reach-entity-attributes.json:ItemMixin
+mixins.reach-entity-attributes.json:ServerPlayNetworkHandlerMixin
+mixins.reach-entity-attributes.json:VehicleInventoryValidationMixin
+mixins.reach-entity-attributes.json:client.ClientPlayerInteractionManagerMixin
+mixins.reach-entity-attributes.json:client.GameRendererMixin
+# Wilder Wild: mesoglea bubble columns (LivingEntity.baseTick bubble column check), echo glass breaking (Forge's
+# removeBlock path, server and client), snowlogged block breaking and snowlogged block item sounds (Forge's getSoundType with level/pos/entity).
+wilderwild.mixins.json:block.mesoglea.LivingEntityMixin#wilderWild$isBubbleColumnOrMesogleaColumn
+wilderwild.mixins.json:block.echo_glass.ServerPlayerGameModeMixin
+wilderwild.mixins.json:block.echo_glass.client.MultiPlayerGameModeMixin
+wilderwild.mixins.json:snowlogging.ServerPlayerGameModeMixin#wilderWild$destroyBlockB
+wilderwild.mixins.json:snowlogging.client.MultiPlayerGameModeMixin#wilderWild$destroyBlockB
+wilderwild.mixins.json:snowlogging.BlockItemMixin#wilderWild$place
+# FrozenLib: shovel flattening hooks in ShovelItem.useOn, which Forge rewrote around ToolActions. Lost: FrozenLib's
+# shovel behaviour API (Wilder Wild uses it for mud/scorched sand). Forge's shovel flattening still works.
+mixin/frozenlib.item.mixins.json:shovel.ShovelItemMixin
+# FrozenLib/Wilder Wild, found by the static check once folder configs were fitted: Forge's bone meal event path
+# (BlockEvent/BonemealEvent in growCrop/useOn), its spawn placement check in isSpawnPositionOk, and the data pack
+# failure screen call in WorldOpenFlows.doLoadLevel. Lost: FrozenLib bone meal behaviours and spawn rules API, the
+# Quilt resource loader's "data pack failed" message, Wilder Wild's extra bone meal use.
+mixin/frozenlib.item.mixins.json:bonemeal.BoneMealItemMixin#frozenLib$runBonemeal
+mixin/frozenlib.entity.mixins.json:NaturalSpawnerMixin#frozenLib$isSpawnPositionOk
+mixin/frozenlib_quiltmc_resource_loader.mixins.json:client.IntegratedServerLoaderMixin#onFailedDataPackLoad
+wilderwild.mixins.json:snowlogging.BoneMealItemMixin#wilderWild$useOn
+mixins.reach-entity-attributes.json:ServerPlayerInteractionManagerMixin
+# FrozenLib gravity API on minecarts (Forge reshaped AbstractMinecart.tick's move/gravity arguments).
+mixin/frozenlib.gravity.mixins.json:AbstractMinecartMixin#useGravity
+# Continuity 3.0.0+1.20.1: the falling block renderer calls Forge's tesselateBlock overload (extra ModelData and RenderType),
+# so the INVOKE point is gone (critical injection failure when the renderer loads). Connected textures stay off on
+# falling blocks only. Found by offline_check.py on Forgeulously Optimized.
+continuity.mixins.json:FallingBlockEntityRendererMixin#continuity$beforeRenderModel
+continuity.mixins.json:FallingBlockEntityRendererMixin#continuity$afterRenderModel
+# reg05 offline check (critical LOAD failures, still there with classReaderExpandFrames, javap on the Forge 47 game jar):
+# Puzzles Lib 8.1.36 (Fabric): @ModifyVariable STORE of the BlockState local in ScreenEffectRenderer.renderScreenEffect;
+# Forge 47 keeps a Pair<BlockState, BlockPos> from getOverlayBlock there and fires RenderBlockScreenEffectEvent, no
+# BlockState local. Lost: Puzzles Lib's Fabric-side overlay block hook (Forge's event still runs).
+puzzleslib.fabric.mixins.json:client.ScreenEffectRendererFabricMixin#renderScreenEffect
+# Balm 7.3.44 (Fabric): @ModifyVariable float ordinal 1 at the first BlockState.is(Block) in CropBlock.getGrowthSpeed;
+# Forge 47 replaced the farmland is() with canSustainPlant/isFertile, so the first is() is now a neighbour check where
+# that local is out of range. Lost: Balm's Fabric crop growth speed hook on 1.20.1 (Forge's own growth hooks stay).
+balm.mixins.json:FabricCropBlockMixin#getGrowthSpeed
+# reg05 offline check: Architectury (Fabric) client.MixinEffectInstance#mojangPls redirects the ResourceLocation that
+# EffectInstance's constructor builds; Forge 47 already keeps the mod namespace (ResourceLocation.tryParse), so the
+# redirect has no target (critical, EffectInstance cannot load). Also on branch matrix120 (271a769); nothing is lost.
+architectury.mixins.json:client.MixinEffectInstance#mojangPls
+# matrix120 fabric list (2026-11-14), offline mixin check: injectors of popular Fabric mods whose target Forge 47 rewrote.
+# Each one is a critical injection failure, which crashes the game when the target class loads.
+# Architectury 9.2.14 (Fabric build; the Forge build is the better choice when no Fabric mod needs this one):
+#  - charTyped lambda: Forge's lambda takes a Screen, the @ModifyVariable wants a GuiEventListener. Lost: Architectury's
+#    screen char-typed wrappers (ClientScreenInputEvent.CHAR_TYPED_PRE/POST); its key events stay.
+#  - EffectInstance <init>: Forge already reads namespaced shader names (ResourceLocation.tryParse). Nothing lost.
+#  - GameRenderer.render: Forge draws screens through ForgeHooksClient.drawScreen. Lost: ClientGuiEvent.RENDER_PRE/RENDER_POST for screens.
+#  - BaseSpawner (spawn rules and its obstruction check) / NaturalSpawner chunk generation: Forge replaced Mob.checkSpawnRules with ForgeEventFactory.checkSpawnPosition*.
+#    Lost: EntityEvent.LIVING_CHECK_SPAWN for spawners and chunk-generation spawns (Forge's MobSpawnEvent still fires).
+#  - PhantomSpawner.tick: Forge calls ForgeEventFactory.onFinalizeSpawn instead of Phantom.finalizeSpawn.
+#    Lost: LIVING_CHECK_SPAWN for phantoms.
+#  - CatSpawner.spawnCat: Forge calls ForgeEventFactory.onFinalizeSpawn instead of Cat.finalizeSpawn.
+#    Lost: LIVING_CHECK_SPAWN for village and swamp hut cats.
+#  - Minecraft.startUseItem / Level.explode: the handlers capture locals and Forge added its own locals there
+#    (InteractionKeyMappingTriggered, a second BlockInteraction), so the LVT check fails when the class loads.
+#    Lost: InteractionEvent.CLIENT_RIGHT_CLICK_AIR and ExplosionEvent.PRE (found by the dry boot, not the offline check).
+#  (PersistentEntitySectionManager.addEntity is not here: fit_targets FIT-D moves it to Forge's addEntityWithoutEvent.)
+architectury.mixins.json:client.MixinKeyboardHandler#wrapCharTypedFirst
+architectury.mixins.json:client.MixinKeyboardHandler#wrapCharTypedSecond
+architectury.mixins.json:client.MixinGameRenderer#renderScreenPre
+architectury.mixins.json:client.MixinGameRenderer#renderScreenPost
+architectury.mixins.json:MixinBaseSpawner#checkSpawnerSpawn
+architectury.mixins.json:MixinBaseSpawner#skipDoubleObstruction
+architectury.mixins.json:MixinNaturalSpawner#overrideChunkGenSpawnCondition
+architectury.mixins.json:MixinPhantomSpawner#checkPhantomSpawn
+architectury.mixins.json:MixinCatSpawner#checkCatSpawn
+architectury.mixins.json:client.MixinMinecraft#rightClickAir
+architectury.mixins.json:MixinLevel#explodePre
+# Continuity 3.0.0: Forge's FallingBlockRenderer renders each RenderType with ModelData. Lost: connected textures on
+# falling blocks (blocks in the world are not affected).
+continuity.mixins.json:FallingBlockEntityRendererMixin
+# GeckoLib 4.8.4 (Fabric build): Forge's renderArmorPiece passes the model through ForgeHooksClient.getArmorModel.
+# Lost: GeckoLib armor models on players and mobs (vanilla armor model shows). The Forge build of GeckoLib has it.
+geckolib.mixins.json:MixinHumanoidArmorLayer#injectArmor
+# JEI 15.56 (Fabric build): Forge's KeyMapping uses KeyMappingLookup instead of KeyMapping.MAP, and its charTyped lambda
+# takes a Screen and calls Screen.charTyped. Lost: JEI's key-conflict lookup and its char-typed hooks
+# (the search field may not get typed text). Its consumeCharTypedEvent hook stays. Use the Forge build of JEI.
+jei.mixins.json:KeyMappingMixin#getActiveKeyMapping
+jei.mixins.json:KeyboardHandlerMixin#beforeCharTypedEvent
+jei.mixins.json:KeyboardHandlerMixin#beforeCharTypedEvent2
+jei.mixins.json:KeyboardHandlerMixin#afterCharTypedEvent
+jei.mixins.json:KeyboardHandlerMixin#afterCharTypedEvent2
+# MoreCulling 0.24.6: Forge renders items per RenderType (no ItemBlockRenderTypes.getRenderType call), bakes block models
+# with a changed face lookup, and Multipart/WeightedBakedModel only have the ModelData getQuads. Lost: MoreCulling's
+# item transparency shortcut (and its display-transform lookup: Forge applies item transforms through
+# ForgeHooksClient.handleCameraTransforms) and cull shapes set in model JSON. The two cache mixins stay (CacheUtils casts every baked
+# model to BakedOpacity, which they add; without them the game crashes at the first resource reload): only their
+# @Shadow getQuads goes, their calls reach the inherited getQuads.
+moreculling.mixins.json:renderers.ItemRenderer_faceCullingMixin#moreculling$fastTransparencyChecks
+moreculling.mixins.json:renderers.ItemRenderer_faceCullingMixin#moreculling$getTransformation
+moreculling.mixins.json:models.cullshape.JsonUnbakedModel_cullShapeMixin#overrideFaceData
+moreculling.mixins.json:models.MultipartBakedModel_cacheMixin#getQuads
+moreculling.mixins.json:models.WeightedBakedModel_cacheMixin#getQuads

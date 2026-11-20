@@ -1,0 +1,80 @@
+package alloy.compat121support.sodium;
+
+import net.fabricmc.api.EnvType;
+import net.fabricmc.loader.api.FabricLoader;
+import org.apache.logging.log4j.LogManager;
+import org.objectweb.asm.tree.ClassNode;
+import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
+import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Set;
+
+/**
+ * Plugin of alloy.compat121.sodium.mixins.json (Minecraft 1.21.1, Forge 52, Fabric Sodium 0.6 to 0.8). The config lists no
+ * mixins itself: they are added here only on the client when a Sodium this compat was made for is installed, so a missing
+ * target never logs an error.
+ *
+ * <p>Sodium 0.6+ asks every loader question through java.util.ServiceLoader services
+ * (net.caffeinemc.mods.sodium.client.services). Three small mixins on the service interfaces hand Sodium Alloy's Forge
+ * answers (ForgeModelAccess121, ForgeBlockAccess121, ForgeLevelRenderHooks121); the other mixins cover what the services
+ * do not.
+ */
+public final class SodiumPlugin121 implements IMixinConfigPlugin {
+    static final List<String> SODIUM = List.of(
+            "PlatformModelAccessMixin121",      // R1 R2: Forge render types, ModelData, 5-argument getQuads
+            "PlatformBlockAccessMixin121",      // R6 R7: Forge face hiding, light emission, fluid overlay, AO, glow
+            "PlatformLevelRenderHooksMixin121", // R5: Forge's per-layer render stage events
+            "BakedQuadMixin121",           // R0: Forge's 6-argument BakedQuad constructor
+            "FluidRendererMixin121",       // R4: Forge fluids
+            "LevelSliceMixin121",          // R11: getModelDataManager() and the 4-float getShade on Sodium's LevelSlice
+            "ModelBlockRendererMixin121",  // FRAPI models outside chunks through Forge's 12-argument tesselateBlock
+            "BlockEntitiesMixin121");      // 1.21.4+: Sodium's block entity pass on Forge's renderBlockEntities(..., Frustum)
+    /** Iris 1.8.x hooks whose targets Forge 52 changed (the Iris handlers are stripped by the fitter), plus Forge 52's
+     *  self-calling 3-argument ParticleEngine.render, which Iris's opaque particle pass calls. */
+    static final List<String> IRIS = List.of("IrisShaderInstanceMixin121", "ParticleEngineMixin121", "IrisParticlesMixin121",
+            "IrisPassesMixin121");   // 1.21.4 and 1.21.8: Iris's begin-translucents step on Forge's main pass lambda
+
+    @Override public void onLoad(String mixinPackage) { }
+    @Override public String getRefMapperConfig() { return null; }
+    @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) { return true; }
+    @Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) { }
+
+    /** The Sodium lines a 1.21.x build of this compat is for (0.6 and 0.8 on 1.21.1, 0.6 on 1.21.4, 0.7 on 1.21.8, 0.8 on
+     *  1.21.11); the installer only puts the jar next to a Sodium of its version's line (ModDoctor.SODIUM_LINES). */
+    public static boolean supported(String v) {
+        return v.startsWith("0.6.") || v.startsWith("0.7.") || v.startsWith("0.8.");
+    }
+
+    @Override public List<String> getMixins() {
+        FabricLoader fl = FabricLoader.getInstance();
+        if (fl.getEnvironmentType() != EnvType.CLIENT) return null;
+        var sodium = fl.getModContainer("sodium");
+        if (sodium.isEmpty()) return null;
+        String v = sodium.get().getMetadata().getVersion().getFriendlyString();
+        if (!supported(v)) {
+            LogManager.getLogger("Alloy/Sodium").warn("Sodium {} is not 0.6.x, 0.7.x or 0.8.x; Alloy's Forge rendering compat for Sodium is off", v);
+            return null;
+        }
+        if ("off".equals(System.getProperty("alloy.sodium.compat"))) {
+            LogManager.getLogger("Alloy/Sodium").warn("-Dalloy.sodium.compat=off: Sodium {} runs without Alloy's Forge rendering compat", v);
+            return null;
+        }
+        List<String> out = new ArrayList<>(SODIUM);
+        if ("off".equals(System.getProperty("alloy.sodium.services"))) {   // test switch: Sodium's Fabric (vanilla) answers, the rest stays
+            out.removeIf(m -> m.startsWith("Platform"));
+            LogManager.getLogger("Alloy/Sodium").warn("-Dalloy.sodium.services=off: Sodium keeps its Fabric model, block and render hook services");
+        }
+        if (fl.isModLoaded("iris")) out.addAll(IRIS);
+        // one plugin for every 1.21.x build: a version's build leaves out the mixins that do not fit it (mc<version>/exclude.txt)
+        ClassLoader cl = SodiumPlugin121.class.getClassLoader();
+        out.removeIf(m -> cl.getResource("alloy/compat121/sodium/mixin/" + m + ".class") == null);
+        LogManager.getLogger("Alloy/Sodium").info("Forge rendering compat for Sodium {}: {} mixins{}", v, out.size(),
+                fl.isModLoaded("iris") ? " (with Iris)" : "");
+        return out;
+    }
+
+    @Override public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) { }
+    @Override public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) { }
+}

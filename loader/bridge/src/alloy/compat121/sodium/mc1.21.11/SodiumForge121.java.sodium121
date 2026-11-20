@@ -1,0 +1,80 @@
+package alloy.compat121support.sodium;
+
+import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandler;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.BlockPos;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.client.ForgeHooksClient;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Forge 52 features in Fabric Sodium 0.6+ (Minecraft 1.21.1). Sodium asks its loader questions through services; the
+ * Forge answers are ForgeModelAccess121, ForgeBlockAccess121 and ForgeLevelRenderHooks121, handed out by
+ * ForgeServices121. Same ideas as Sodium's own NeoForge build, with Forge's names and
+ * signatures; the code is Alloy's.
+ */
+public final class SodiumForge121 {
+    public static final Logger LOG = LogManager.getLogger("Alloy/Sodium");
+    public static final boolean IRIS = FabricLoader.getInstance().isModLoaded("iris");
+
+    private SodiumForge121() { }
+
+    // R1 (Forge layers) is done in ForgeModelAccess121 on 1.21.5+ (BlockStateModel API).
+
+    // ---------------------------------------------------------------- R4: Forge fluids
+
+    private static final Map<Fluid, Object> FLUIDS = new ConcurrentHashMap<>();
+    private static final Object NONE = new Object();
+
+    /** A Fabric FluidRenderHandler for a Forge fluid that has none, from its IClientFluidTypeExtensions; null otherwise. */
+    public static FluidRenderHandler forgeFluid(Fluid fluid) {
+        if (fluid == null || fluid == Fluids.EMPTY || fluid == Fluids.WATER || fluid == Fluids.FLOWING_WATER
+                || fluid == Fluids.LAVA || fluid == Fluids.FLOWING_LAVA) return null;
+        Object h = FLUIDS.computeIfAbsent(fluid, f -> {
+            try {
+                IClientFluidTypeExtensions ext = IClientFluidTypeExtensions.of(f);
+                if (ext == null || ext == IClientFluidTypeExtensions.DEFAULT || ext.getStillTexture() == null || ext.getFlowingTexture() == null)
+                    return NONE;
+                return new ForgeFluidHandler();
+            } catch (RuntimeException | LinkageError e) {
+                warnOnce("fluid", "Forge fluid lookup failed for " + f, e);
+                return NONE;
+            }
+        });
+        return h instanceof FluidRenderHandler r ? r : null;
+    }
+
+    static final class ForgeFluidHandler implements FluidRenderHandler {
+        @Override public TextureAtlasSprite[] getFluidSprites(BlockAndTintGetter view, BlockPos pos, FluidState state) {
+            TextureAtlasSprite[] s = ForgeHooksClient.getFluidSprites(view, pos, state);
+            if (s.length > 2 && s[2] == null) {   // Sodium reads index 2 as the overlay whenever the array has 3 slots
+                TextureAtlasSprite[] r = new TextureAtlasSprite[2];
+                r[0] = s[0];
+                r[1] = s[1];
+                s = r;
+            }
+            return s;
+        }
+
+        @Override public int getFluidColor(BlockAndTintGetter view, BlockPos pos, FluidState state) {
+            return IClientFluidTypeExtensions.of(state).getTintColor(state, view, pos);
+        }
+    }
+
+    // ---------------------------------------------------------------- misc
+
+    private static final Map<String, Boolean> WARNED = new ConcurrentHashMap<>();
+
+    static void warnOnce(String key, String msg, Throwable t) {
+        if (WARNED.putIfAbsent(key, Boolean.TRUE) == null) LOG.warn(msg, t);
+    }
+}

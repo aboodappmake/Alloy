@@ -1,0 +1,157 @@
+package alloy.compat121support.sodium;
+
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.renderer.ShaderInstance;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.lang.reflect.Field;
+import java.util.EnumSet;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Optional;
+import java.util.Set;
+import java.util.function.Supplier;
+
+/**
+ * Iris 1.8.8 particle phases on Forge 52 (mixin/IrisParticleEngineMixin121, IrisParticlesMixin121). Iris is reached by
+ * reflection so the compat compiles without it; those mixins are only added with Iris.
+ *
+ * <p>Iris's own particle hooks target the vanilla 3-argument ParticleEngine.render; Forge's level renderer calls its
+ * 4-argument overload (with the Frustum), so the fitter stripped Iris's phase filter, its translucent shader and its late
+ * (translucent) pass. Iris's early (opaque) pass is kept: it sets Iris's phase on the engine (PhasedParticleEngine) and calls
+ * the 3-argument render. Here the 4-argument render reads that same phase, so both passes draw the right particle types.
+ */
+public final class IrisFeatures121 {
+    private static final Logger LOG = LogManager.getLogger("Alloy/Iris");
+
+    public enum Phase { EVERYTHING, OPAQUE, TRANSLUCENT }
+
+    /** Iris MixinParticleEngine.OPAQUE_PARTICLE_RENDER_TYPES */
+    private static final List<ParticleRenderType> OPAQUE = List.of(ParticleRenderType.PARTICLE_SHEET_OPAQUE,
+            ParticleRenderType.PARTICLE_SHEET_LIT, ParticleRenderType.CUSTOM, ParticleRenderType.NO_RENDER);
+
+    private static final MethodHandle PIPELINE_MANAGER, GET_PIPELINE, PARTICLE_SETTINGS, TRANSLUCENT_SHADER, SET_PIPELINE_PHASE;
+    private static final Object PHASE_PARTICLES, PHASE_NONE;
+    private static final Field ENGINE_PHASE;
+    private static final Object[] IRIS_PHASES;   // Iris ParticleRenderingPhase constants by our Phase ordinal
+    private static boolean logged;
+    private static final Set<Phase> SEEN = EnumSet.noneOf(Phase.class);
+
+    static {
+        MethodHandles.Lookup l = MethodHandles.publicLookup();
+        MethodHandle pm = null, gp = null, ps = null, ts = null, sp = null;
+        Object pp = null, pn = null;
+        Field ef = null;
+        Object[] ip = null;
+        try {
+            ClassLoader cl = IrisFeatures121.class.getClassLoader();
+            Class<?> iris = Class.forName("net.irisshaders.iris.Iris", false, cl);
+            Class<?> manager = Class.forName("net.irisshaders.iris.pipeline.PipelineManager", false, cl);
+            Class<?> pipeline = Class.forName("net.irisshaders.iris.pipeline.WorldRenderingPipeline", false, cl);
+            Class<?> settings = Class.forName("net.irisshaders.iris.shaderpack.properties.ParticleRenderingSettings", false, cl);
+            Class<?> access = Class.forName("net.irisshaders.iris.pipeline.programs.ShaderAccess", false, cl);
+            Class<?> wphase = Class.forName("net.irisshaders.iris.pipeline.WorldRenderingPhase", false, cl);
+            Class<?> pphase = Class.forName("net.irisshaders.iris.fantastic.ParticleRenderingPhase", false, cl);
+            pm = l.findStatic(iris, "getPipelineManager", MethodType.methodType(manager));
+            gp = l.findVirtual(manager, "getPipeline", MethodType.methodType(Optional.class));
+            ps = l.findVirtual(pipeline, "getParticleRenderingSettings", MethodType.methodType(settings));
+            ts = l.findStatic(access, "getParticleTranslucentShader", MethodType.methodType(ShaderInstance.class));
+            sp = l.findVirtual(pipeline, "setPhase", MethodType.methodType(void.class, wphase));
+            pp = wphase.getField("PARTICLES").get(null);
+            pn = wphase.getField("NONE").get(null);
+            ip = new Object[]{pphase.getField("EVERYTHING").get(null), pphase.getField("OPAQUE").get(null), pphase.getField("TRANSLUCENT").get(null)};
+            for (Field f : ParticleEngine.class.getDeclaredFields())   // Iris's @Unique phase field on ParticleEngine
+                if (f.getType() == pphase) { f.setAccessible(true); ef = f; break; }
+            if (ef == null) LOG.warn("Iris's particle phase field is not on ParticleEngine; Forge's particle render draws every type in each pass");
+        } catch (ReflectiveOperationException | RuntimeException | LinkageError e) {
+            LOG.warn("Iris 1.8 classes not found; particle phases stay off: {}", e.toString());
+        }
+        PIPELINE_MANAGER = pm; GET_PIPELINE = gp; PARTICLE_SETTINGS = ps; TRANSLUCENT_SHADER = ts; SET_PIPELINE_PHASE = sp;
+        PHASE_PARTICLES = pp; PHASE_NONE = pn; ENGINE_PHASE = ef; IRIS_PHASES = ip;
+    }
+
+    private IrisFeatures121() { }
+
+    private static Object pipeline() {
+        if (PIPELINE_MANAGER == null) return null;
+        try {
+            Optional<?> p = (Optional<?>) GET_PIPELINE.invoke(PIPELINE_MANAGER.invoke());
+            return p.orElse(null);
+        } catch (Throwable t) {
+            return null;
+        }
+    }
+
+    /** "BEFORE", "MIXED" or "AFTER"; MIXED when there is no pipeline (Iris's default) */
+    public static String ordering() {
+        if (PIPELINE_MANAGER == null) return "AFTER";   // Iris not usable: one pass at the vanilla spot
+        String out;
+        try {
+            Object p = pipeline();
+            Object s = p == null ? null : PARTICLE_SETTINGS.invoke(p);
+            out = s == null ? "MIXED" : ((Enum<?>) s).name();
+        } catch (Throwable t) {
+            out = "AFTER";
+        }
+        if (!logged) {
+            logged = true;
+            LOG.info("Iris particle ordering: {}", out);
+        }
+        return out;
+    }
+
+    /** Iris's world rendering phase PARTICLES (begin true) or NONE, as Iris's own hooks on the 3-argument render do */
+    public static void pipelinePhase(boolean begin) {
+        if (SET_PIPELINE_PHASE == null) return;
+        try {
+            Object p = pipeline();
+            if (p != null) SET_PIPELINE_PHASE.invoke(p, begin ? PHASE_PARTICLES : PHASE_NONE);
+        } catch (Throwable ignored) {
+        }
+    }
+
+    /** the engine's Iris particle phase (set by Iris's early pass and by IrisParticlesMixin121) */
+    public static Phase phase(ParticleEngine engine) {
+        if (ENGINE_PHASE == null) return Phase.EVERYTHING;
+        try {
+            Object v = ENGINE_PHASE.get(engine);
+            return v == null ? Phase.EVERYTHING : Phase.valueOf(((Enum<?>) v).name());
+        } catch (ReflectiveOperationException | RuntimeException e) {
+            return Phase.EVERYTHING;
+        }
+    }
+
+    public static void setPhase(ParticleEngine engine, Phase p) {
+        if (ENGINE_PHASE == null) return;
+        try {
+            ENGINE_PHASE.set(engine, IRIS_PHASES[p.ordinal()]);
+        } catch (ReflectiveOperationException | RuntimeException ignored) {
+        }
+    }
+
+    /** the particle types to draw in the current phase, in Forge's order */
+    public static Set<ParticleRenderType> filter(ParticleEngine engine, Set<ParticleRenderType> types) {
+        Phase phase = phase(engine);
+        if (phase == Phase.EVERYTHING) return types;
+        Set<ParticleRenderType> out = new LinkedHashSet<>();
+        for (ParticleRenderType t : types) if (OPAQUE.contains(t) == (phase == Phase.OPAQUE)) out.add(t);
+        if (!out.isEmpty() && SEEN.add(phase)) LOG.info("Iris particle phase {}: draws {} of {} particle types {}", phase, out.size(), types.size(), out);
+        return out;
+    }
+
+    public static Supplier<ShaderInstance> shader(ParticleEngine engine, Supplier<ShaderInstance> original) {
+        if (phase(engine) != Phase.TRANSLUCENT || TRANSLUCENT_SHADER == null) return original;
+        return () -> {
+            try {
+                return (ShaderInstance) TRANSLUCENT_SHADER.invoke();
+            } catch (Throwable t) {
+                return original.get();
+            }
+        };
+    }
+}

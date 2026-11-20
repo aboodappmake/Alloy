@@ -1,0 +1,38 @@
+package alloy.compat121.sodium.mixin;
+
+import alloy.compat121support.sodium.IrisShader121;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.vertex.VertexFormat;
+import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.resources.ResourceProvider;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Iris 1.8.8 on Forge 52: Iris hooks ShaderInstance(ResourceProvider, String, VertexFormat), which on Forge only calls the
+ * new ShaderInstance(ResourceProvider, ResourceLocation, VertexFormat). Its two hooks there are stripped (by the fitter)
+ * and done here on Forge's constructor instead, the same way:
+ * - iris$redirectBindAttributeLocation: Iris's own shaders bind Position, Color, Normal, UV0..2 as iris_*.
+ * - iris$setupGeometryShader: before the JSON is parsed, Iris's ExtendedShader loads its geometry and tessellation shaders.
+ * Iris builds "minecraft:shaders/core/" + name, and Forge's String constructor made the location with ResourceLocation.parse(name),
+ * so the path is the name Iris expects.
+ */
+@Mixin(value = ShaderInstance.class, remap = false)
+public abstract class IrisShaderInstanceMixin121 {
+    @WrapOperation(method = "<init>(Lnet/minecraft/server/packs/resources/ResourceProvider;Lnet/minecraft/resources/ResourceLocation;Lcom/mojang/blaze3d/vertex/VertexFormat;)V",
+            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/shaders/Uniform;glBindAttribLocation(IILjava/lang/CharSequence;)V"))
+    private void alloy$irisAttribute(int program, int index, CharSequence name, Operation<Void> original) {
+        original.call(program, index, IrisShader121.attribute(this, name));
+    }
+
+    @Inject(method = "<init>(Lnet/minecraft/server/packs/resources/ResourceProvider;Lnet/minecraft/resources/ResourceLocation;Lcom/mojang/blaze3d/vertex/VertexFormat;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/util/GsonHelper;parse(Ljava/io/Reader;)Lcom/google/gson/JsonObject;"))
+    private void alloy$irisExtraShaders(ResourceProvider provider, ResourceLocation location, VertexFormat format, CallbackInfo ci) {
+        IrisShader121.createExtraShaders(this, provider,
+                "minecraft".equals(location.getNamespace()) ? location.getPath() : location.toString());
+    }
+}

@@ -1,0 +1,35 @@
+# Fabric API injectors that cannot apply on 1.21.4 Forge. Same format as compat_replaces.txt (config:mixin#handler).
+# Found with an offline mixin check against the Forge game jar, then checked in boots.
+# offline check rounds (fit120.py, 8 report(s)):
+fabric-registry-sync-v0.client.mixins.json:BlockColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ParticleManagerMixin
+fabric-rendering-v1.mixins.json:BlockColorsMixin
+fabric-rendering-v1.mixins.json:InGameHudMixin
+fabric-renderer-indigo.mixins.json:SectionBuilderMixin#hookBuildRenderBlock
+fabric-particles-v1.client.mixins.json:BlockDustParticleMixin#removeUntintableParticles
+fabric-rendering-v1.mixins.json:ArmorFeatureRendererMixin#renderArmor
+fabric-rendering-v1.mixins.json:WorldRendererMixin#afterEntities
+fabric-rendering-v1.mixins.json:WorldRendererMixin#afterTerrainSolid
+fabric-rendering-v1.mixins.json:WorldRendererMixin#beforeDebugRender
+fabric-rendering-v1.mixins.json:WorldRendererMixin#beforeRenderOutline
+fabric-rendering-v1.mixins.json:WorldRendererMixin#beforeTerrainSolid
+fabric-rendering-v1.mixins.json:WorldRendererMixin#onDrawBlockOutline
+fabric-rendering-v1.mixins.json:WorldRendererMixin#onFinishWritingFramebuffer
+fabric-rendering-v1.mixins.json:WorldRendererMixin#setMatrixStack
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#getOverlayBlock
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#modSideSpriteForOverlay
+fabric-sound-api-v1.mixins.json:SoundSystemMixin#getStream
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin#addReplaced
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin#addTagAliasGroupBuilders
+fabric-data-generation-api-v1.client.mixins.json:ModelProviderItemAssetsMixin#filterItemsForProcessingMod
+fabric-object-builder-v1.mixins.json:TradeOffersTypeAwareBuyForOneEmeraldFactoryMixin#disableVanillaCheck
+fabric-object-builder-v1.client.mixins.json:HangingSignEditScreenMixin#init
+fabric-object-builder-v1.client.mixins.json:TexturedRenderLayersMixin#redirectHangingVanillaId
+fabric-object-builder-v1.client.mixins.json:TexturedRenderLayersMixin#redirectSignVanillaId
+fabric-registry-sync-v0.mixins.json:ExperimentalRegistriesValidatorMixin#getDynamicRegistries
+fabric-registry-sync-v0.mixins.json:SerializableRegistriesMixin#filterNonSyncedEntries
+fabric-registry-sync-v0.mixins.json:SerializableRegistriesMixin#filterNonSyncedEntriesAgain
+fabric-resource-conditions-api-v1.mixins.json:JsonDataLoaderMixin#skipData
+# servers121 dry boots: the server Language redirect finds no target on Forge (lenient skip on every server boot); server side
+# language loading of Fabric mods' lang files stays off, as it already was
+fabric-resource-loader-v0.mixins.json:server.LanguageMixin#create

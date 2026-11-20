@@ -1,0 +1,37 @@
+package alloy.compat120.sodium.mixin;
+
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraftforge.client.ForgeHooksClient;
+import org.joml.Matrix4f;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * R5: Sodium @Overwrites LevelRenderer.renderChunkLayer, which drops Forge's per-layer RenderLevelStageEvent
+ * (AFTER_SOLID_BLOCKS, AFTER_CUTOUT_MIPPED_BLOCKS_BLOCKS, AFTER_CUTOUT_BLOCKS, AFTER_TRANSLUCENT_BLOCKS,
+ * AFTER_TRIPWIRE_BLOCKS).
+ * 1.20.4 copy (bridge/src49): the method is renderSectionLayer since 1.20.2, same arguments. Priority 1100 so this applies after Sodium's overwrite (1000); same three lines as Embeddium.
+ */
+@Mixin(value = LevelRenderer.class, remap = false, priority = 1100)
+public abstract class LevelRendererStageMixin120 {
+    @Shadow private int ticks;
+    @Shadow @Final private Minecraft minecraft;
+    @Shadow public abstract Frustum getFrustum();
+
+    @Inject(method = "renderSectionLayer(Lnet/minecraft/client/renderer/RenderType;Lcom/mojang/blaze3d/vertex/PoseStack;DDDLorg/joml/Matrix4f;)V",
+            at = @At("TAIL"))
+    private void alloy$forgeRenderStage(RenderType type, PoseStack pose, double x, double y, double z, Matrix4f projection, CallbackInfo ci) {
+        type.setupRenderState();
+        ForgeHooksClient.dispatchRenderStage(type, (LevelRenderer) (Object) this, pose, projection, this.ticks,
+                this.minecraft.gameRenderer.getMainCamera(), this.getFrustum());
+        type.clearRenderState();
+    }
+}

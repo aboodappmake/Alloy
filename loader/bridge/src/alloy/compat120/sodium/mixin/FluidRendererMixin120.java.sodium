@@ -1,0 +1,26 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.SodiumForge120;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.FluidRenderer;
+import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandler;
+import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandlerRegistry;
+import net.minecraft.world.level.material.Fluid;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * R4: Sodium asks Fabric's FluidRenderHandlerRegistry for a fluid's handler and falls back to water. A Forge fluid has no
+ * Fabric handler, so it would mesh as water. Here a Forge fluid without one gets a handler built from its
+ * IClientFluidTypeExtensions (still, flowing and overlay sprites, tint color).
+ */
+@Mixin(value = FluidRenderer.class, remap = false)
+public abstract class FluidRendererMixin120 {
+    @WrapOperation(method = "getFluidRenderHandler(Lnet/minecraft/world/level/material/FluidState;)Lnet/fabricmc/fabric/api/client/render/fluid/v1/FluidRenderHandler;",
+            at = @At(value = "INVOKE", target = "Lnet/fabricmc/fabric/api/client/render/fluid/v1/FluidRenderHandlerRegistry;get(Lnet/minecraft/world/level/material/Fluid;)Lnet/fabricmc/fabric/api/client/render/fluid/v1/FluidRenderHandler;"))
+    private static FluidRenderHandler alloy$forgeFluid(FluidRenderHandlerRegistry registry, Fluid fluid, Operation<FluidRenderHandler> original) {
+        FluidRenderHandler h = original.call(registry, fluid);
+        return h != null ? h : SodiumForge120.forgeFluid(fluid);
+    }
+}

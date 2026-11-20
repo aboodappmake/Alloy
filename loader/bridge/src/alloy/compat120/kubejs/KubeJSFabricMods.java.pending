@@ -1,0 +1,46 @@
+package alloy.compat120support.kubejs;
+
+import java.lang.reflect.Constructor;
+import java.lang.reflect.Field;
+import java.util.Map;
+import net.fabricmc.loader.api.FabricLoader;
+import net.fabricmc.loader.api.ModContainer;
+import net.fabricmc.loader.api.metadata.ModMetadata;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/** Helper of compat120.kubejs.PlatformWrapperCompat120 (kept outside the mixin package). */
+public final class KubeJSFabricMods {
+    private static final Logger LOG = LoggerFactory.getLogger("Alloy");
+    private static final String MOD_INFO = "dev.latvian.mods.kubejs.script.PlatformWrapper$ModInfo";
+    private static Map<String, Object> done;
+
+    private KubeJSFabricMods() {}
+
+    public static synchronized void addTo(Map<String, Object> mods) {
+        if (mods == null || mods == done) return;
+        done = mods;
+        try {
+            Class<?> info = Class.forName(MOD_INFO, true, KubeJSFabricMods.class.getClassLoader());
+            Constructor<?> ctor = info.getConstructor(String.class);
+            Field name = info.getDeclaredField("name");
+            Field version = info.getDeclaredField("version");
+            name.setAccessible(true);
+            version.setAccessible(true);
+            int added = 0;
+            for (ModContainer mc : FabricLoader.getInstance().getAllMods()) {
+                ModMetadata m = mc.getMetadata();
+                String id = m.getId();
+                if (mods.containsKey(id) || id.equals("java") || id.startsWith("alloy")) continue;
+                Object o = ctor.newInstance(id);
+                name.set(o, m.getName());
+                version.set(o, m.getVersion().getFriendlyString());
+                mods.put(id, o);
+                added++;
+            }
+            LOG.info("Alloy: KubeJS Platform.mods now also lists {} Fabric mod(s)", added);
+        } catch (Throwable t) {
+            LOG.warn("Alloy: could not add Fabric mods to KubeJS Platform.mods: {}", t.toString());
+        }
+    }
+}

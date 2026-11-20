@@ -1,0 +1,87 @@
+package alloy.compat120support;
+
+import java.lang.ref.WeakReference;
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.CopyOnWriteArrayList;
+import net.fabricmc.fabric.api.resource.IdentifiableResourceReloadListener;
+import net.fabricmc.fabric.impl.resource.loader.ResourceManagerHelperImpl;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.packs.PackType;
+import net.minecraft.server.packs.resources.PreparableReloadListener;
+
+/**
+ * Pack type of a reload whose resource manager Fabric API cannot read (compat120 resource.ReloadSortCompat120).
+ * Client: the ReloadableResourceManager's listener list, by identity (Moonlight's ReloadInstanceWrapper calls
+ * SimpleReloadInstance.create later, after createReload returned). Server: a hint set while
+ * ReloadableServerResources.loadResources runs (Forge hands create a copy of the listener list, so the list is no key).
+ */
+public final class ReloadTypes {
+    private ReloadTypes() {}
+
+    static final org.slf4j.Logger LOG = org.slf4j.LoggerFactory.getLogger("Alloy");
+
+    private record Entry(WeakReference<List<?>> list, PackType type) {}
+
+    private static final List<Entry> LISTS = new CopyOnWriteArrayList<>();
+    /** set while ReloadableServerResources.loadResources runs on this thread (it calls create synchronously) */
+    public static final ThreadLocal<PackType> HINT = new ThreadLocal<>();
+    private static final Set<String> UNKNOWN = ConcurrentHashMap.newKeySet();
+
+    public static void remember(List<?> list, PackType type) {
+        if (list == null || type == null) return;
+        LISTS.removeIf(e -> e.list().get() == null);
+        for (Entry e : LISTS) if (e.list().get() == list) return;
+        LISTS.add(new Entry(new WeakReference<>(list), type));
+    }
+
+    /** the pack type of this create call, or null */
+    public static PackType typeOf(List<?> list) {
+        for (Entry e : LISTS) if (e.list().get() == list) return e.type();
+        return HINT.get();
+    }
+
+    /** a reload Alloy could not place: said once per manager class, never skipped silently */
+    public static void unknown(Object manager) {
+        String c = manager == null ? "null" : manager.getClass().getName();
+        if (UNKNOWN.add(c))
+            LOG.warn("Alloy reload: unknown pack type for {} (not Fabric's manager, not started by a ReloadableResourceManager or a "
+                    + "server reload): Fabric reload listeners skipped for it", c);
+    }
+
+    /**
+     * Fabric's listeners of type t added to the list the way Fabric's sort does (after the others, in dependency order),
+     * as a mutable list (Forge code adds to it). Adds are idempotent by Fabric id: a listener whose id is already in the
+     * list (a second sort of the same list, two copies of one listener) is not added again. The given list's own listeners
+     * keep their places (vanilla, then Forge's), so the order is the one Connector has: Fabric last.
+     */
+    public static List<PreparableReloadListener> withFabric(PackType t, List<PreparableReloadListener> list) {
+        List<PreparableReloadListener> sorted = ResourceManagerHelperImpl.sort(t, list);
+        Set<PreparableReloadListener> had = Collections.newSetFromMap(new IdentityHashMap<>());
+        had.addAll(list);
+        Set<ResourceLocation> ids = new HashSet<>();
+        for (PreparableReloadListener l : list) if (l instanceof IdentifiableResourceReloadListener i) ids.add(i.getFabricId());
+        List<PreparableReloadListener> out = new ArrayList<>(sorted.size());
+        int added = 0;
+        for (PreparableReloadListener l : sorted) {
+            if (!had.contains(l)) {
+                if (l instanceof IdentifiableResourceReloadListener i && !ids.add(i.getFabricId())) continue;
+                added++;
+            }
+            out.add(l);
+        }
+        LOG.info("Alloy reload {}: {} Fabric listener(s) added after {} others (manager Fabric API cannot read)", t, added, list.size());
+        if (Boolean.getBoolean("alloy.reloadOrder"))
+            LOG.info("Alloy reload {} order: {}", t, out.stream().map(ReloadTypes::name).toList());
+        return out;
+    }
+
+    static String name(PreparableReloadListener l) {
+        return l instanceof IdentifiableResourceReloadListener i ? i.getFabricId().toString() : l.getClass().getName();
+    }
+}

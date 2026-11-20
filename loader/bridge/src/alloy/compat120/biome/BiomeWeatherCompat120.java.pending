@@ -1,0 +1,66 @@
+package alloy.compat120.biome;
+
+import net.minecraft.world.level.biome.Biome;
+import net.minecraftforge.common.world.ModifiableBiomeInfo;
+import org.objectweb.asm.Opcodes;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Mutable;
+import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * Fabric biome weather changes ({@code BiomeModificationContext.WeatherContext} setters) on Forge 47.
+ *
+ * <p>Fabric's {@code WeatherContextImpl} reads and replaces the field {@code Biome.climateSettings} directly. Alloy drops
+ * Fabric's access widener for that field (aw_edits: Forge's field_to_method coremod refuses to run once the field is not
+ * private), so the first setter threw IllegalAccessError while the server started and the world did not load. And even
+ * with access the write would be lost: Forge's Biome reads its climate from {@code modifiableBiomeInfo().get()}.
+ *
+ * <p>Fix: every read of the field goes to {@code getModifiedClimateSettings()} (what Forge's Biome itself reads), every write
+ * goes into Forge's {@code ModifiableBiomeInfo}. Fabric's modifications run at the end of the MinecraftServer constructor,
+ * before Forge's biome modifiers (ServerLifecycleHooks.handleServerAboutToStart), so the new climate goes into the original
+ * info and Forge's modifiers start from it. A late write (Forge already ran) replaces the modified info instead.
+ *
+ * <p>Follow-up, not done here: route all Fabric biome modifications through one Forge biome modifier with Forge's phases,
+ * as Forgified Fabric API does.
+ */
+public final class BiomeWeatherCompat120 {
+    private BiomeWeatherCompat120() {}
+
+    @Mixin(value = ModifiableBiomeInfo.class, remap = false)
+    public interface Info {
+        @Mutable
+        @Accessor(value = "originalBiomeInfo", remap = false)
+        void alloy$setOriginal(ModifiableBiomeInfo.BiomeInfo info);
+
+        @Accessor(value = "modifiedBiomeInfo", remap = false)
+        void alloy$setModified(ModifiableBiomeInfo.BiomeInfo info);
+    }
+
+    @Mixin(targets = "net.fabricmc.fabric.impl.biome.modification.BiomeModificationContextImpl$WeatherContextImpl", remap = false)
+    public abstract static class Weather {
+        @Redirect(method = {"setPrecipitation(Z)V", "setTemperature(F)V", "setTemperatureModifier(Lnet/minecraft/world/level/biome/Biome$TemperatureModifier;)V", "setDownfall(F)V"},
+                at = @At(value = "FIELD", opcode = Opcodes.GETFIELD, remap = false,
+                        target = "Lnet/minecraft/world/level/biome/Biome;climateSettings:Lnet/minecraft/world/level/biome/Biome$ClimateSettings;"),
+                remap = false)
+        private Biome.ClimateSettings alloy$readClimate(Biome biome) {
+            return biome.getModifiedClimateSettings();
+        }
+
+        @Redirect(method = {"setPrecipitation(Z)V", "setTemperature(F)V", "setTemperatureModifier(Lnet/minecraft/world/level/biome/Biome$TemperatureModifier;)V", "setDownfall(F)V"},
+                at = @At(value = "FIELD", opcode = Opcodes.PUTFIELD, remap = false,
+                        target = "Lnet/minecraft/world/level/biome/Biome;climateSettings:Lnet/minecraft/world/level/biome/Biome$ClimateSettings;"),
+                remap = false)
+        private void alloy$writeClimate(Biome biome, Biome.ClimateSettings climate) {
+            ModifiableBiomeInfo info = biome.modifiableBiomeInfo();
+            ModifiableBiomeInfo.BiomeInfo modified = info.getModifiedBiomeInfo();
+            if (modified != null) {
+                ((Info) info).alloy$setModified(new ModifiableBiomeInfo.BiomeInfo(climate, modified.effects(), modified.generationSettings(), modified.mobSpawnSettings()));
+            } else {
+                ModifiableBiomeInfo.BiomeInfo original = info.getOriginalBiomeInfo();
+                ((Info) info).alloy$setOriginal(new ModifiableBiomeInfo.BiomeInfo(climate, original.effects(), original.generationSettings(), original.mobSpawnSettings()));
+            }
+        }
+    }
+}

@@ -1,0 +1,152 @@
+package alloy.compat121support.sodium;
+
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.caffeinemc.mods.sodium.client.render.frapi.render.AbstractBlockRenderContext;
+import net.caffeinemc.mods.sodium.client.services.PlatformModelAccess;
+import net.caffeinemc.mods.sodium.client.services.SodiumModelData;
+import net.caffeinemc.mods.sodium.client.services.SodiumModelDataContainer;
+import net.caffeinemc.mods.sodium.client.world.LevelSlice;
+import net.fabricmc.fabric.api.renderer.v1.mesh.QuadEmitter;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.BlockModelPart;
+import net.minecraft.client.renderer.block.model.BlockStateModel;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.SectionPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelDataManager;
+
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Minecraft 1.21.8 (Forge 58, Sodium 0.7.3): Sodium's model service on the BlockStateModel API. Forge's SectionCompiler
+ * asks the model for its ModelData, loops over getRenderTypes(state, random, data) and collects the parts of each layer
+ * with collectParts(random, list, data, layer); vanilla's 2-argument collectParts that Sodium's Fabric answer calls loses
+ * both the ModelData and the layer. Here collectPartsOf does Forge's loop and remembers each part's layer (per thread), and
+ * getPartRenderType hands that layer back. Fallbacks as on 1.21.1: an Iris layer override or a Fabric BlockRenderLayerMap
+ * layer (Forge says "solid only", the vanilla map says otherwise) keeps Sodium's default answer.
+ */
+public final class ForgeModelAccess121 implements PlatformModelAccess {
+    private static final SodiumModelDataContainer EMPTY_CONTAINER = new SodiumModelDataContainer(Long2ObjectMaps.emptyMap());
+    /** part -> Forge layer of the block being meshed, per mesher thread; filled by collectPartsOf, read by getPartRenderType */
+    private static final ThreadLocal<Map<BlockModelPart, ChunkSectionLayer>> LAYERS = ThreadLocal.withInitial(IdentityHashMap::new);
+    /** true while the block being meshed keeps Sodium's default layer (Iris override, Fabric layer map, no Forge layers) */
+    private static final ThreadLocal<boolean[]> DEFAULT_ONLY = ThreadLocal.withInitial(() -> new boolean[1]);
+
+    @Override
+    public List<BakedQuad> getQuads(BlockAndTintGetter level, BlockPos pos, BlockModelPart part, BlockState state, Direction face, RandomSource random,
+                                    ChunkSectionLayer layer) {
+        return part.getQuads(face);
+    }
+
+    @Override
+    public SodiumModelDataContainer getModelDataContainer(Level level, SectionPos sectionPos) {
+        try {
+            ModelDataManager mgr = level.getModelDataManager();
+            if (mgr == null) return EMPTY_CONTAINER;
+            Map<BlockPos, ModelData> at = mgr.getAt(sectionPos);
+            if (at == null || at.isEmpty()) return EMPTY_CONTAINER;
+            Long2ObjectMap<SodiumModelData> map = new Long2ObjectOpenHashMap<>(at.size());
+            for (Map.Entry<BlockPos, ModelData> e : at.entrySet()) {
+                if (e.getKey() == null || e.getValue() == null || e.getValue() == ModelData.EMPTY) continue;
+                map.put(e.getKey().asLong(), ForgeModelData121.wrap(e.getValue()));
+            }
+            return map.isEmpty() ? EMPTY_CONTAINER : new SodiumModelDataContainer(map);
+        } catch (RuntimeException e) {
+            SodiumForge121.warnOnce("modeldata", "Forge ModelData of a section could not be read; it meshes without model data", e);
+            return EMPTY_CONTAINER;
+        }
+    }
+
+    @Override
+    public SodiumModelData getEmptyModelData() {
+        return ForgeModelData121.EMPTY;
+    }
+
+    @Override
+    public ChunkSectionLayer getPartRenderType(BlockModelPart part, BlockState state, ChunkSectionLayer defaultType) {
+        ChunkSectionLayer l = LAYERS.get().get(part);
+        if (l != null) return l;
+        if (DEFAULT_ONLY.get()[0]) return defaultType;
+        try {
+            l = part.layer();   // Forge: the JSON render_type of a simple model part, else null
+        } catch (RuntimeException | LinkageError e) {
+            l = null;
+        }
+        return l != null ? l : defaultType;
+    }
+
+    @Override
+    public List<BlockModelPart> collectPartsOf(BlockStateModel model, BlockAndTintGetter view, BlockPos pos, BlockState state, RandomSource random,
+                                               QuadEmitter emitter) {
+        List<BlockModelPart> out;
+        if (emitter instanceof AbstractBlockRenderContext.BlockEmitter be) {
+            out = be.cachedList();
+            out.clear();
+        } else {
+            out = new ArrayList<>();
+        }
+        Map<BlockModelPart, ChunkSectionLayer> layers = LAYERS.get();
+        layers.clear();
+        ModelData data = ModelData.EMPTY;
+        if (view instanceof LevelSlice slice) data = ForgeModelData121.unwrap(slice.getPlatformModelData(pos));
+        try {
+            data = model.getModelData(view, pos, state, data);
+        } catch (RuntimeException e) {
+            SodiumForge121.warnOnce("getmodeldata", "getModelData failed for " + state + "; it meshes without model data", e);
+        }
+        if (data == null) data = ModelData.EMPTY;
+        long seed = state.getSeed(pos);
+        Collection<ChunkSectionLayer> forge = forgeLayers(model, state, random, data, seed);
+        DEFAULT_ONLY.get()[0] = forge == null;
+        if (forge == null) {   // Sodium's default: vanilla parts, vanilla layer
+            random.setSeed(seed);
+            model.collectParts(random, out);
+            return out;
+        }
+        for (ChunkSectionLayer layer : forge) {
+            int from = out.size();
+            random.setSeed(seed);
+            model.collectParts(random, out, data, layer);
+            for (int i = from; i < out.size(); i++) {
+                BlockModelPart p = out.get(i);
+                ChunkSectionLayer had = layers.putIfAbsent(p, layer);
+                if (had != null && had != layer) {   // the same part object in two layers: a copy that carries the second layer
+                    ForgeLayerPart121 copy = new ForgeLayerPart121(p, layer);
+                    out.set(i, copy);
+                    layers.put(copy, layer);
+                }
+            }
+        }
+        return out;
+    }
+
+    /** Forge's layers for this block, or null when Sodium's default answer (vanilla layer) is right */
+    private static Collection<ChunkSectionLayer> forgeLayers(BlockStateModel model, BlockState state, RandomSource random, ModelData data, long seed) {
+        ChunkSectionLayer legacy = ItemBlockRenderTypes.getChunkRenderType(state);
+        if (SodiumForge121.IRIS && Iris121.hasLayerOverride(state)) return null;
+        Collection<ChunkSectionLayer> set;
+        try {
+            random.setSeed(seed);
+            set = model.getRenderTypes(state, random, data);
+        } catch (RuntimeException e) {
+            SodiumForge121.warnOnce("rendertypes", "getRenderTypes failed for " + state + "; the vanilla layer is used", e);
+            return null;
+        }
+        if (set == null || set.isEmpty()) return null;
+        if (legacy != ChunkSectionLayer.SOLID && set.size() == 1 && set.contains(ChunkSectionLayer.SOLID)) return null;
+        return set;
+    }
+}

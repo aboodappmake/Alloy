@@ -1,0 +1,57 @@
+package alloy.compat120.registry;
+
+import com.llamalad7.mixinextras.injector.wrapmethod.WrapMethod;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.mojang.serialization.Lifecycle;
+import net.minecraft.core.Holder;
+import net.minecraft.resources.ResourceKey;
+import net.minecraftforge.registries.ForgeRegistry;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+
+/**
+ * 1.20.1 version of compat/registry/NamespacedWrapperLateRegister (26.1). Fabric mods register straight into vanilla
+ * registries from their {@code main}/{@code client} entrypoints or from static initializers (Falling Leaves and Visuality add
+ * particle types in onInitializeClient). On Forge 47 those registries are {@code NamespacedWrapper}s and
+ * {@code registerMapping} throws "Can not register to a locked registry. Modder should use Forge Register methods." once
+ * Forge has locked them, which stops the whole client entrypoint stage (crash before the title screen).
+ *
+ * <p>Fix: a registration that does not come from Forge itself briefly re-opens the registry ({@code ForgeRegistry.unfreeze()}
+ * clears the frozen flag and {@code NamespacedWrapper.locked}), lets Forge's own code assign the id, and freezes it again.
+ * Calls whose first non-registry stack frame is in {@code net.minecraftforge.*} keep Forge's protection.
+ */
+@Mixin(targets = "net.minecraftforge.registries.NamespacedWrapper", remap = false)
+public abstract class NamespacedWrapperLateRegister120<T> {
+    @Shadow(remap = false) boolean locked;
+    @Shadow(remap = false) private ForgeRegistry<T> delegate;
+
+    @WrapMethod(method = "registerMapping(ILnet/minecraft/resources/ResourceKey;Ljava/lang/Object;Lcom/mojang/serialization/Lifecycle;)Lnet/minecraft/core/Holder$Reference;", remap = false)
+    private Holder.Reference<T> alloy$allowFabricRegistration(int id, ResourceKey<T> key, T value, Lifecycle life,
+                                                                  Operation<Holder.Reference<T>> original) {
+        boolean reopen = locked && delegate != null && !calledByForge();
+        // restore exactly what was there: on 1.20.1 Fabric's main entrypoints run before Forge's registry events, when the
+        // wrapper is locked but the ForgeRegistry is not frozen yet; freezing it here made ForgeMod's own constructor fail
+        // ("Attempted to register the alias forge:reach_distance -> forge:block_reach too late")
+        boolean wasFrozen = reopen && delegate.isLocked();
+        if (reopen) {
+            delegate.unfreeze();
+            locked = false;   // Forge 48 (1.20.2): ForgeRegistry.unfreeze() clears only its own frozen flag, not the wrapper's lock
+        }
+        try {
+            return original.call(id, key, value, life);
+        } finally {
+            if (reopen) {
+                if (wasFrozen) delegate.freeze();
+                locked = true;
+            }
+        }
+    }
+
+    private static boolean calledByForge() {
+        return StackWalker.getInstance().walk(frames -> frames
+                .map(f -> f.getClassName())
+                .filter(n -> !n.equals("net.minecraft.core.Registry") && !n.startsWith("net.minecraftforge.registries.NamespacedWrapper")
+                        && !n.startsWith("alloy.compat120.registry.") && !n.startsWith("java.") && !n.startsWith("jdk."))
+                .findFirst().map(n -> n.startsWith("net.minecraftforge.")).orElse(false));
+    }
+}

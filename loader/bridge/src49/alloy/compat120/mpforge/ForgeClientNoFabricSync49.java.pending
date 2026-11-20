@@ -1,0 +1,32 @@
+package alloy.compat120.mpforge;
+
+import net.fabricmc.fabric.api.networking.v1.ServerConfigurationNetworking;
+import net.fabricmc.fabric.impl.registry.sync.RegistrySyncManager;
+import net.fabricmc.fabric.mixin.networking.accessor.ServerCommonNetworkHandlerAccessor;
+import net.minecraft.network.Connection;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.network.ServerConfigurationPacketListenerImpl;
+import net.minecraftforge.network.ConnectionType;
+import net.minecraftforge.network.NetworkContext;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Forge 49 / Fabric API 0.97.3 version of compat/mpforge/ForgeClientNoFabricSyncMixin (26.1.2): a pure Forge client
+ * (Forge's NetworkContext type MODDED) that does not take Fabric's registry sync channel is not kicked with "requires
+ * Fabric Loader and Fabric API"; Forge's own registry sync covers it. Alloy clients announce the channel and keep the
+ * Fabric sync. Vanilla clients fall through to Fabric's own decision.
+ */
+@Mixin(value = RegistrySyncManager.class, remap = false)
+public abstract class ForgeClientNoFabricSync49 {
+    @Inject(method = "configureClient", at = @At("HEAD"), cancellable = true)
+    private static void alloy$skipForPureForge(ServerConfigurationPacketListenerImpl handler, MinecraftServer server, CallbackInfo ci) {
+        Connection connection = ((ServerCommonNetworkHandlerAccessor) handler).getConnection();
+        if (NetworkContext.get(connection).getType() == ConnectionType.MODDED
+                && !ServerConfigurationNetworking.canSend(handler, RegistrySyncManager.DIRECT_PACKET_HANDLER.getPacketId())) {
+            ci.cancel();
+        }
+    }
+}

@@ -1,0 +1,81 @@
+package alloy.compat120.model;
+
+import java.util.List;
+import net.fabricmc.fabric.api.renderer.v1.model.ForwardingBakedModel;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.client.ChunkRenderTypeSet;
+import net.minecraftforge.client.model.data.ModelData;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): Fabric's ForwardingBakedModel forwards only the vanilla BakedModel methods. A Fabric
+ * mod that wraps a Forge model (Continuity wraps every block model once its model modifiers run, see ModelBakerCompat120)
+ * then answered Forge's own questions with Forge's defaults: no ModelData (Rechiseled and Fusion connected textures fell
+ * back to the plain texture) and the block's default render layer instead of the model's render_type (cutout flowers from
+ * Biomes O' Plenty drawn as solid squares). These methods pass Forge's questions on to the wrapped model, as Forgified Fabric
+ * API does. A subclass that changes the vanilla getQuads keeps getting Forge's quad call. applyTransform and
+ * getRenderPasses stay with the wrapper, so item rendering still goes through it.
+ */
+@Mixin(value = ForwardingBakedModel.class, remap = false)
+public abstract class ForwardingBakedModelCompat120 implements BakedModel {
+    @Shadow protected BakedModel wrapped;
+
+    /** per wrapper class: true when it changes the vanilla getQuads itself; Forge's call then goes there, as before */
+    @Unique private static final java.util.Map<Class<?>, Boolean> ALLOY$OWN_QUADS = new java.util.concurrent.ConcurrentHashMap<>();
+
+    @Unique
+    private static boolean alloy$ownQuads(Class<?> c) {
+        Boolean b = ALLOY$OWN_QUADS.get(c);
+        if (b == null) {
+            try {
+                b = c.getMethod("getQuads", BlockState.class, Direction.class, RandomSource.class).getDeclaringClass() != ForwardingBakedModel.class;
+            } catch (NoSuchMethodException e) {
+                b = false;
+            }
+            ALLOY$OWN_QUADS.put(c, b);
+        }
+        return b;
+    }
+
+    @Override
+    public List<BakedQuad> getQuads(BlockState state, Direction side, RandomSource rand, ModelData data, RenderType renderType) {
+        if (alloy$ownQuads(getClass())) return getQuads(state, side, rand);
+        return wrapped.getQuads(state, side, rand, data, renderType);
+    }
+
+    @Override
+    public ModelData getModelData(BlockAndTintGetter level, BlockPos pos, BlockState state, ModelData data) {
+        return wrapped.getModelData(level, pos, state, data);
+    }
+
+    @Override
+    public ChunkRenderTypeSet getRenderTypes(BlockState state, RandomSource rand, ModelData data) {
+        return wrapped.getRenderTypes(state, rand, data);
+    }
+
+    @Override
+    public List<RenderType> getRenderTypes(ItemStack stack, boolean fabulous) {
+        return wrapped.getRenderTypes(stack, fabulous);
+    }
+
+    @Override
+    public boolean useAmbientOcclusion(BlockState state, RenderType renderType) {
+        return wrapped.useAmbientOcclusion(state, renderType);
+    }
+
+    @Override
+    public TextureAtlasSprite getParticleIcon(ModelData data) {
+        return wrapped.getParticleIcon(data);
+    }
+}

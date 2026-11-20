@@ -1,0 +1,37 @@
+package alloy.compat121.sodium.mixin;
+
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.client.renderer.state.LevelRenderState;
+import net.minecraft.server.level.BlockDestructionProgress;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.SortedSet;
+
+/**
+ * Minecraft 1.21.11: Sodium's core LevelRendererMixin replaces vanilla extractVisibleBlockEntities(Camera, float,
+ * LevelRenderState) at HEAD (require 1) with its own pass over its visible sections. Forge 61 added a Frustum argument, so
+ * the injector has no target: stripped by the fitter, vanilla would then walk a section list Sodium keeps empty and every
+ * block entity (chests, signs) would be invisible. compat_replaces.1.21.11.txt names it; this does it on Forge's method.
+ */
+@Mixin(value = LevelRenderer.class, remap = false, priority = 1100)
+public abstract class BlockEntitiesMixin121 {
+    @Shadow @Final private Long2ObjectMap<SortedSet<BlockDestructionProgress>> destructionProgress;
+
+    @Inject(method = "extractVisibleBlockEntities(Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/state/LevelRenderState;"
+            + "Lnet/minecraft/client/renderer/culling/Frustum;)V", at = @At("HEAD"), cancellable = true)
+    private void alloy$sodiumBlockEntities(Camera camera, float partial, LevelRenderState state, Frustum frustum, CallbackInfo ci) {
+        SodiumWorldRenderer r = SodiumWorldRenderer.instanceNullable();
+        if (r == null) return;   // Sodium's renderer is not set up: Forge's own walk
+        ci.cancel();
+        r.extractBlockEntities(camera, partial, this.destructionProgress, state);
+    }
+}

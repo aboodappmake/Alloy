@@ -154,6 +154,7 @@ Minecraft 1.20.1: 63 of 63 Fabric mods reach a world next to Forge mods. 27 of 2
 | `KNOWN-ISSUES.md` | What is broken or untested right now, from the latest test runs |
 | `COMPATIBILITY.md` | What works on each version, and every tested mod with its result |
 | `LICENSE`, `NOTICE.md` | Apache-2.0 license and credits |
+| `loader/`, `BUILDING.md` | Source code of the installer, the loader bridge and the API, and how to build them |
 | `alloy-agent-full.jar` | Experimental: Alloy for a plain Fabric instance of another launcher (see `INSTALL.md`) |
 
 ## What Alloy downloads
@@ -165,5 +166,7 @@ Alloy doesn't send anything about you anywhere. Other network use: an optional l
 ## Credits
 
 Alloy runs on the work of the Forge project and FabricMC. If Alloy is useful to you, please support them too.
+
+Source code is in this repository (`loader/`, see `BUILDING.md`).
 
 Alloy is licensed under Apache-2.0. See `LICENSE` and `NOTICE.md`.

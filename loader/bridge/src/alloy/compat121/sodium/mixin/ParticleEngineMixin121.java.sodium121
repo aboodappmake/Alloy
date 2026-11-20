@@ -1,0 +1,64 @@
+package alloy.compat121.sodium.mixin;
+
+import alloy.compat121support.sodium.IrisFeatures121;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.ShaderInstance;
+import net.minecraft.client.renderer.culling.Frustum;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
+/**
+ * Forge 52's ParticleEngine with Iris 1.8.8.
+ * <ul>
+ * <li>Forge 52.1.21's vanilla render(LightTexture, Camera, float) calls itself (the Forge patch meant its Frustum overload),
+ * so any caller of the 3-argument render overflows the stack. Forge's own level renderer calls the Frustum overload, but
+ * Iris's opaque particle pass calls the 3-argument one. The self call goes to the Frustum overload with the level renderer's
+ * frustum here.</li>
+ * <li>Iris particle phases on the Frustum overload: Iris's world rendering phase PARTICLES around it, only the particle
+ * types of the engine's Iris phase, and Iris's translucent particle shader in the translucent phase (Iris's own hooks are on
+ * the 3-argument render, stripped by the fitter).</li>
+ * </ul>
+ */
+@Mixin(value = ParticleEngine.class, remap = false)
+public abstract class ParticleEngineMixin121 {
+    private static final String FORGE_RENDER = "render(Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V";
+
+    @WrapOperation(method = "render(Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;F)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/particle/ParticleEngine;render(Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;F)V"))
+    private void alloy$noSelfCall(ParticleEngine engine, LightTexture light, Camera camera, float partial, Operation<Void> original) {
+        engine.render(light, camera, partial, Minecraft.getInstance().levelRenderer.getFrustum());
+    }
+
+    @Inject(method = FORGE_RENDER, at = @At("HEAD"))
+    private void alloy$irisBegin(LightTexture light, Camera camera, float partial, Frustum frustum, CallbackInfo ci) {
+        IrisFeatures121.pipelinePhase(true);
+    }
+
+    @Inject(method = FORGE_RENDER, at = @At("RETURN"))
+    private void alloy$irisEnd(LightTexture light, Camera camera, float partial, Frustum frustum, CallbackInfo ci) {
+        IrisFeatures121.pipelinePhase(false);
+    }
+
+    @SuppressWarnings("unchecked")
+    @WrapOperation(method = FORGE_RENDER, at = @At(value = "INVOKE", target = "Ljava/util/Map;keySet()Ljava/util/Set;"))
+    private Set<?> alloy$irisPhaseTypes(Map<?, ?> particles, Operation<Set<?>> original) {
+        return IrisFeatures121.filter((ParticleEngine) (Object) this, (Set<ParticleRenderType>) original.call(particles));
+    }
+
+    @WrapOperation(method = FORGE_RENDER, at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;setShader(Ljava/util/function/Supplier;)V"))
+    private void alloy$irisPhaseShader(Supplier<ShaderInstance> shader, Operation<Void> original) {
+        original.call(IrisFeatures121.shader((ParticleEngine) (Object) this, shader));
+    }
+}

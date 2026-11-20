@@ -1,0 +1,1318 @@
+{
+ "schema": 1,
+ "id": "26.2",
+ "status": "port target (branch port-26.2)",
+ "source": "Copied from 26.1.2.json; Forge 26.2-65.1.6 installer version.json, Fabric API 0.161.0+26.2 (Modrinth), Fabric Loader 0.20.1 (meta.fabricmc.net lists it for 26.2). Counts measured with port_check.py on the 26.2 jars in run/port262.",
+ "minecraft": "26.2",
+ "forge": {
+  "version": "65.1.6",
+  "full": "26.2-65.1.6",
+  "installer": "net.minecraftforge:forge:26.2-65.1.6:installer",
+  "fmlFamily": "fml64",
+  "mainClass": "net.minecraftforge.bootstrap.ForgeBootstrap",
+  "launchTarget": {
+   "client": "forge_client",
+   "server": "forge_server"
+  },
+  "launchHandler": {
+   "client": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Client",
+   "server": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Server"
+  },
+  "runtimeNames": "mojang",
+  "coremods": "java (forge-transformers, applied by PrepGame at prep time)",
+  "libraries": [
+   "net.minecraftforge:JarJarFileSystems:0.4.2",
+   "net.minecraftforge:roimfs:1.0.0",
+   "com.google.guava:guava:33.6.0-jre",
+   "com.google.guava:failureaccess:1.0.3",
+   "net.minecraftforge:securemodules:2.2.24",
+   "net.minecraftforge:unsafe:0.9.2",
+   "org.ow2.asm:asm:9.10.1",
+   "org.ow2.asm:asm-tree:9.10.1",
+   "org.ow2.asm:asm-util:9.10.1",
+   "org.ow2.asm:asm-commons:9.10.1",
+   "org.ow2.asm:asm-analysis:9.10.1",
+   "net.minecraftforge:bootstrap:2.1.8",
+   "net.minecraftforge:bootstrap-api:2.1.8",
+   "net.minecraftforge:accesstransformers:8.2.17",
+   "net.minecraftforge:eventbus:7.0.5",
+   "org.jspecify:jspecify:1.0.0",
+   "net.minecraftforge:forgespi:8.0.0",
+   "net.minecraftforge:coremods-api:5.3.1",
+   "net.minecraftforge:modlauncher:10.2.6",
+   "net.minecraftforge:mergetool-api:1.0",
+   "com.electronwill.night-config:toml:3.7.4",
+   "com.electronwill.night-config:core:3.7.4",
+   "org.apache.maven:maven-artifact:3.8.8",
+   "net.minecrell:terminalconsoleappender:1.2.0",
+   "org.jline:jline-reader:3.25.1",
+   "org.jline:jline-terminal:3.25.1",
+   "org.jline:jline-terminal-jna:3.25.1",
+   "org.spongepowered:mixin:0.8.7",
+   "io.github.llamalad7:mixinextras-forge:0.5.4",
+   "net.minecraftforge:JarJarSelector:0.4.2",
+   "net.minecraftforge:JarJarMetadata:0.4.2",
+   "net.minecraftforge:fmlcore:26.2-65.1.6",
+   "net.minecraftforge:fmlloader:26.2-65.1.6",
+   "net.minecraftforge:fmlearlydisplay:26.2-65.1.6",
+   "net.minecraftforge:javafmllanguage:26.2-65.1.6",
+   "net.minecraftforge:lowcodelanguage:26.2-65.1.6",
+   "net.minecraftforge:mclanguage:26.2-65.1.6",
+   "net.minecraftforge:forge-transformers:26.2-65.1.6"
+  ]
+ },
+ "fabric": {
+  "loader": "0.20.1",
+  "api": "0.161.0+26.2",
+  "mixin": "0.17.5+mixin.0.8.7",
+  "mixinExtras": "0.5.5",
+  "runtimeNames": "mojang (26.1 has no Intermediary)",
+  "apiPrefit": "fabric-api-0.161.0+26.2-alloy.jar"
+ },
+ "java": {
+  "run": 25,
+  "release": 25,
+  "asm": "9.10.1"
+ },
+ "mappings": {
+  "runtime": "mojang",
+  "forge": "mojang",
+  "fabric": "mojang",
+  "note": "26.1 is unobfuscated: no mapping files needed"
+ },
+ "maven": {
+  "mojangManifest": "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+  "forge": "https://maven.minecraftforge.net",
+  "fabric": "https://maven.fabricmc.net",
+  "central": "https://repo1.maven.org/maven2",
+  "coordinates": {
+   "forgeInstaller": "net.minecraftforge:forge:26.2-65.1.6:installer",
+   "fabricLoader": "net.fabricmc:fabric-loader:0.20.1",
+   "fabricApi": "net.fabricmc.fabric-api:fabric-api:0.161.0+26.2",
+   "mixin": "net.fabricmc:sponge-mixin:0.17.5+mixin.0.8.7",
+   "mixinExtras": "io.github.llamalad7:mixinextras-fabric:0.5.5",
+   "asm": "org.ow2.asm:asm:9.10.1"
+  }
+ },
+ "prepfml": {
+  "note": "PrepFml patches every jar in the Forge shim's bootstrap-shim.list that matches install.py FML_JARS (fmlcore, fmlloader, javafmllanguage, lowcodelanguage, mclanguage, modlauncher, forge universal). expect = PrepFml's own output on 26.1.2 (install log).",
+  "jars": [
+   {
+    "id": "fmlcore",
+    "coord": "net.minecraftforge:fmlcore:26.2-65.1.6",
+    "expect": {
+     "calls": 2,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "fmlloader",
+    "coord": "net.minecraftforge:fmlloader:26.2-65.1.6",
+    "expect": {
+     "calls": 11,
+     "bodies": 3
+    }
+   },
+   {
+    "id": "forge-universal",
+    "coord": "net.minecraftforge:forge:26.2-65.1.6:universal",
+    "expect": {
+     "calls": 1,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "javafmllanguage",
+    "coord": "net.minecraftforge:javafmllanguage:26.2-65.1.6",
+    "expect": {
+     "calls": 4,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "lowcodelanguage",
+    "coord": "net.minecraftforge:lowcodelanguage:26.2-65.1.6",
+    "expect": {
+     "calls": 0,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "mclanguage",
+    "coord": "net.minecraftforge:mclanguage:26.2-65.1.6",
+    "expect": {
+     "calls": 2,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "modlauncher",
+    "coord": "net.minecraftforge:modlauncher:10.2.6",
+    "expect": {
+     "calls": 7,
+     "bodies": 4
+    }
+   }
+  ],
+  "rules": [
+   {
+    "id": "layers",
+    "kind": "body",
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "method": "findLayerManager",
+    "desc": "()Ljava/util/Optional;",
+    "action": "return BridgeHooks.layers()",
+    "hook": {
+     "name": "layers",
+     "desc": "()Ljava/util/Optional;"
+    },
+    "expect": {
+     "modlauncher": 1
+    }
+   },
+   {
+    "id": "noServices",
+    "kind": "body",
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "method": [
+     "findNameMapping",
+     "findLaunchPlugin",
+     "findLaunchHandler"
+    ],
+    "descSuffix": ")Ljava/util/Optional;",
+    "action": "return Optional.empty()",
+    "expect": {
+     "modlauncher": 3
+    }
+   },
+   {
+    "id": "noAccessTransformer",
+    "kind": "body",
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "method": "addAccessTransformer",
+    "action": "return (PrepGame applies ATs)",
+    "expect": {
+     "fmlloader": 1
+    }
+   },
+   {
+    "id": "noMixinExtras",
+    "kind": "body",
+    "owner": "net/minecraftforge/fml/loading/moddiscovery/JarInJarDependencyLocator",
+    "method": "anyMixinsLoaded",
+    "action": "return false",
+    "expect": {
+     "fmlloader": 1
+    }
+   },
+   {
+    "id": "versionInfo",
+    "kind": "body",
+    "owner": "net/minecraftforge/fml/loading/JarVersionLookupHandler",
+    "method": "getInfo",
+    "descPrefix": "(Ljava/lang/Class;)",
+    "action": "return BridgeHooks.versionInfo(clazz)",
+    "hook": {
+     "name": "versionInfo"
+    },
+    "expect": {
+     "fmlloader": 1
+    }
+   },
+   {
+    "id": "serviceLoad",
+    "kind": "call",
+    "call": {
+     "owner": "java/util/ServiceLoader",
+     "name": "load",
+     "desc": "(Ljava/lang/ModuleLayer;Ljava/lang/Class;)Ljava/util/ServiceLoader;"
+    },
+    "action": "BridgeHooks.load",
+    "hook": {
+     "name": "load"
+    },
+    "expect": {
+     "fmlcore": 2,
+     "fmlloader": 4,
+     "modlauncher": 5
+    },
+    "sites": [
+     "cpw/mods/modlauncher/LaunchPluginHandler.<init>",
+     "cpw/mods/modlauncher/LaunchServiceHandler.<init>",
+     "cpw/mods/modlauncher/NameMappingServiceHandler.<init>",
+     "cpw/mods/modlauncher/TransformationServicesHandler.discoverServices",
+     "net/minecraftforge/fml/Bindings.<clinit>",
+     "net/minecraftforge/fml/ModStateManager.<clinit>",
+     "net/minecraftforge/fml/loading/FMLLoader.getSingleService",
+     "net/minecraftforge/fml/loading/LanguageLoadingProvider.<clinit>",
+     "net/minecraftforge/fml/loading/moddiscovery/ModDiscoverer.discoverMods"
+    ]
+   },
+   {
+    "id": "findModule",
+    "kind": "call",
+    "call": {
+     "owner": "java/lang/ModuleLayer",
+     "name": "findModule"
+    },
+    "action": "BridgeHooks.findModule",
+    "hook": {
+     "name": "findModule",
+     "desc": "(Ljava/lang/ModuleLayer;Ljava/lang/String;)Ljava/util/Optional;"
+    },
+    "expect": {
+     "fmlloader": 2,
+     "forge-universal": 1,
+     "javafmllanguage": 2,
+     "mclanguage": 1,
+     "modlauncher": 1
+    },
+    "sites": [
+     "cpw/mods/modlauncher/DefaultLaunchHandlerService.lambda$launchService$0",
+     "net/minecraftforge/fml/javafmlmod/FMLModContainer.<init>",
+     "net/minecraftforge/fml/javafmlmod/FMLModContainer.addOpenOrExports",
+     "net/minecraftforge/fml/loading/ImmediateWindowHandler$DummyProvider.updateModuleReads",
+     "net/minecraftforge/fml/loading/targets/CommonLaunchHandler.runTarget",
+     "net/minecraftforge/fml/mclanguageprovider/MinecraftModLanguageProvider$MinecraftModTarget.loadMod",
+     "net/minecraftforge/logging/CrashReportAnalyser.lambda$cacheModList$0"
+    ]
+   },
+   {
+    "id": "forNameModule",
+    "kind": "call",
+    "call": {
+     "owner": "java/lang/Class",
+     "name": "forName",
+     "desc": "(Ljava/lang/Module;Ljava/lang/String;)Ljava/lang/Class;"
+    },
+    "action": "BridgeHooks.forName",
+    "hook": {
+     "name": "forName"
+    },
+    "expect": {
+     "fmlloader": 2,
+     "javafmllanguage": 1,
+     "mclanguage": 1,
+     "modlauncher": 1
+    },
+    "sites": [
+     "cpw/mods/modlauncher/DefaultLaunchHandlerService.lambda$launchService$0",
+     "net/minecraftforge/fml/javafmlmod/FMLModContainer.<init>",
+     "net/minecraftforge/fml/loading/ImmediateWindowHandler$DummyProvider.lambda$updateModuleReads$0",
+     "net/minecraftforge/fml/loading/targets/CommonLaunchHandler.runTarget",
+     "net/minecraftforge/fml/mclanguageprovider/MinecraftModLanguageProvider$MinecraftModTarget.loadMod"
+    ]
+   },
+   {
+    "id": "openModules",
+    "kind": "call",
+    "call": {
+     "owner": "net/minecraftforge/fml/javafmlmod/FMLModContainer",
+     "name": "openModules"
+    },
+    "action": "BridgeHooks.noOpenModules",
+    "hook": {
+     "name": "noOpenModules"
+    },
+    "expect": {
+     "javafmllanguage": 1
+    },
+    "sites": [
+     "net/minecraftforge/fml/javafmlmod/FMLModContainer.<init>"
+    ]
+   },
+   {
+    "id": "forgeModsDir",
+    "kind": "call",
+    "where": {
+     "class": "net/minecraftforge/fml/loading/moddiscovery/ModsFolderLocator",
+     "method": "<init>",
+     "desc": "()V"
+    },
+    "call": {
+     "owner": "net/minecraftforge/fml/loading/FMLPaths",
+     "name": "get"
+    },
+    "action": "BridgeHooks.forgeModsDir",
+    "hook": {
+     "name": "forgeModsDir",
+     "desc": "(Lnet/minecraftforge/fml/loading/FMLPaths;)Ljava/nio/file/Path;"
+    },
+    "expect": {
+     "fmlloader": 1
+    },
+    "sites": [
+     "net/minecraftforge/fml/loading/moddiscovery/ModsFolderLocator.<init>"
+    ]
+   },
+   {
+    "id": "scanDependencies",
+    "kind": "call",
+    "where": {
+     "class": "net/minecraftforge/fml/loading/moddiscovery/ModDiscoverer"
+    },
+    "call": {
+     "owner": "net/minecraftforge/forgespi/locating/IDependencyLocator",
+     "name": "scanMods"
+    },
+    "action": "BridgeHooks.scanDependencies",
+    "hook": {
+     "name": "scanDependencies"
+    },
+    "expect": {
+     "fmlloader": 1
+    },
+    "sites": [
+     "net/minecraftforge/fml/loading/moddiscovery/ModDiscoverer.discoverMods"
+    ]
+   },
+   {
+    "id": "classpathFabric",
+    "kind": "call",
+    "where": {
+     "class": "net/minecraftforge/fml/loading/moddiscovery/ClasspathLocator"
+    },
+    "call": {
+     "owner": "java/lang/ClassLoader",
+     "name": "getResources",
+     "desc": "(Ljava/lang/String;)Ljava/util/Enumeration;"
+    },
+    "action": "BridgeHooks.classpathResources (Fabric mod jars stay Fabric-only)",
+    "hook": {
+     "name": "classpathResources",
+     "desc": "(Ljava/lang/ClassLoader;Ljava/lang/String;)Ljava/util/Enumeration;"
+    },
+    "expect": {
+     "fmlloader": 1
+    },
+    "sites": [
+     "net/minecraftforge/fml/loading/moddiscovery/ClasspathLocator.getUrls"
+    ]
+   }
+  ]
+ },
+ "bridge": {
+  "note": "Reflection that the constant pool does not show (field and method names passed as strings). Direct references are read from the bridge jar itself.",
+  "reflection": [
+   {
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "kind": "field",
+    "name": "blackboard",
+    "why": "Bridge.run"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "kind": "field",
+    "name": "environment",
+    "why": "Bridge.run"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "kind": "field",
+    "name": "argumentHandler",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "kind": "field",
+    "name": "transformStore",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "kind": "field",
+    "name": "moduleLayerHandler",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "kind": "field",
+    "name": "transformationServicesHandler",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/Environment",
+    "kind": "method",
+    "name": "<init>",
+    "desc": "(Lcpw/mods/modlauncher/Launcher;)V",
+    "why": "Bridge.run"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/ArgumentHandler",
+    "kind": "method",
+    "name": "setArgs",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/ArgumentHandler",
+    "kind": "field",
+    "name": "args",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/ModuleLayerHandler",
+    "kind": "method",
+    "name": "<init>",
+    "desc": "()V",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "cpw/mods/modlauncher/TransformationServicesHandler",
+    "kind": "method",
+    "name": "<init>",
+    "desc": "(Lcpw/mods/modlauncher/TransformStore;Lcpw/mods/modlauncher/ModuleLayerHandler;)V",
+    "why": "Bridge.fillLauncher"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "kind": "field",
+    "name": "dist",
+    "why": "Bridge.run setStatic"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "kind": "field",
+    "name": "naming",
+    "why": "Bridge.run setStatic"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "kind": "field",
+    "name": "gamePath",
+    "why": "Bridge.run setStatic"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "kind": "field",
+    "name": "production",
+    "why": "Bridge.run setStatic"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "kind": "field",
+    "name": "commonLaunchHandler",
+    "why": "Bridge.run setStatic"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "kind": "field",
+    "name": "launchHandlerName",
+    "why": "Bridge.run setStatic"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/FMLLoader",
+    "kind": "field",
+    "name": "moduleLayerManager",
+    "why": "Bridge.run setStatic"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/ModDirTransformerDiscoverer",
+    "kind": "field",
+    "name": "found",
+    "why": "Bridge.excludeServiceJars"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/targets/ForgeProdLaunchHandler$Client",
+    "kind": "method",
+    "name": "<init>",
+    "desc": "()V",
+    "why": "Bridge.run: Class.forName(\"...ForgeProdLaunchHandler$\" + side)"
+   },
+   {
+    "owner": "net/minecraftforge/fml/loading/targets/ForgeProdLaunchHandler$Server",
+    "kind": "method",
+    "name": "<init>",
+    "desc": "()V",
+    "why": "Bridge.run"
+   },
+   {
+    "owner": "net/minecraftforge/network/NetworkRegistry",
+    "kind": "field",
+    "name": "lock",
+    "why": "api/impl/ApiNetwork (optional, caught)"
+   },
+   {
+    "owner": "net/minecraftforge/network/NetworkRegistry",
+    "kind": "method",
+    "name": "buildRegisterList",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraftforge/network/NetworkRegistry",
+    "kind": "method",
+    "name": "findTarget",
+    "desc": "(Lnet/minecraft/resources/Identifier;)",
+    "why": "ForgeChannelSync (desc prefix)"
+   },
+   {
+    "owner": "net/minecraftforge/network/NetworkContext",
+    "kind": "method",
+    "name": "get",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraftforge/network/NetworkContext",
+    "kind": "field",
+    "name": "remoteChannels",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraftforge/network/NetworkContext",
+    "kind": "field",
+    "name": "remoteChannelsSize",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraftforge/event/network/ChannelRegistrationChangeEvent$Type",
+    "kind": "field",
+    "name": "REGISTER",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraftforge/event/network/ChannelRegistrationChangeEvent$Type",
+    "kind": "field",
+    "name": "UNREGISTER",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraftforge/event/ForgeEventFactory",
+    "kind": "method",
+    "name": "onChannelRegistrationChange",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraftforge/network/NetworkInstance",
+    "kind": "method",
+    "name": "registrationChange",
+    "why": "ForgeChannelSync"
+   },
+   {
+    "owner": "net/minecraft/network/Connection",
+    "kind": "class",
+    "why": "ForgeChannelSync Class.forName"
+   },
+   {
+    "owner": "net/minecraft/resources/Identifier",
+    "kind": "class",
+    "why": "ForgeChannelSync Class.forName (1.21.10 and older: ResourceLocation)"
+   },
+   {
+    "owner": "net/minecraft/core/RegistrySynchronization",
+    "kind": "field",
+    "name": "NETWORKABLE_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror"
+   },
+   {
+    "owner": "net/minecraft/core/MappedRegistry",
+    "kind": "field",
+    "name": "aliases",
+    "addedBy": "Fabric API MappedRegistryMixin",
+    "why": "compat/registry/NamespacedWrapperFabricAliases"
+   },
+   {
+    "owner": "net/fabricmc/fabric/impl/registry/sync/DynamicRegistriesImpl",
+    "kind": "field",
+    "name": "WORLD_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror"
+   },
+   {
+    "owner": "net/fabricmc/fabric/impl/registry/sync/DynamicRegistriesImpl",
+    "kind": "field",
+    "name": "BOOTSTRAPPING_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror (Fabric API up to 26.2)",
+    "alt": "fabricAllDynamic"
+   },
+   {
+    "owner": "net/fabricmc/fabric/impl/registry/sync/DynamicRegistriesImpl",
+    "kind": "field",
+    "name": "ALL_DYNAMIC_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror (Fabric API 26.3)",
+    "alt": "fabricAllDynamic"
+   },
+   {
+    "owner": "net/fabricmc/fabric/impl/registry/sync/DynamicRegistriesImpl",
+    "kind": "field",
+    "name": "WORLD_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror"
+   },
+   {
+    "owner": "net/minecraftforge/registries/DataPackRegistriesHooks",
+    "kind": "field",
+    "name": "WORLDGEN_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror (Forge up to 26.2)",
+    "alt": "forgeWorldList"
+   },
+   {
+    "owner": "net/minecraftforge/registries/DataPackRegistriesHooks",
+    "kind": "field",
+    "name": "WORLD_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror (Forge 66)",
+    "alt": "forgeWorldList"
+   },
+   {
+    "owner": "net/minecraftforge/registries/DataPackRegistriesHooks",
+    "kind": "field",
+    "name": "SYNCHRONIZED_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror"
+   },
+   {
+    "owner": "net/minecraftforge/registries/DataPackRegistriesHooks",
+    "kind": "field",
+    "name": "NETWORKABLE_REGISTRIES",
+    "why": "compat/registry/DataPackRegistriesFabricMirror"
+   },
+   {
+    "owner": "net/fabricmc/loader/impl/launch/knot/Knot",
+    "kind": "field",
+    "name": "classLoader",
+    "why": "ForgeLaunchPlugins.installHook"
+   },
+   {
+    "owner": "net/fabricmc/loader/impl/launch/knot/KnotClassDelegate",
+    "kind": "field",
+    "name": "mixinTransformer",
+    "why": "ForgeLaunchPlugins.installHook"
+   },
+   {
+    "owner": "net/minecraftforge/client/ForgeHooksClient",
+    "kind": "field",
+    "name": "guiLayers",
+    "alt": "guiLayers",
+    "why": "PrepGame anchorExtractGui (reflection baked into GameRenderer), up to 26.1"
+   },
+   {
+    "owner": "net/minecraftforge/client/gui/overlay/ForgeLayerInstance",
+    "kind": "field",
+    "name": "guiLayers",
+    "alt": "guiLayers",
+    "why": "PrepGame anchorGuiDrawScreen (reflection baked into Gui), 26.2"
+   }
+  ]
+ },
+ "prepgame": {
+  "note": "Hand-written anchors from tools/PrepGame.java as data checks. in = game (Forge-patched jar), vanilla (Mojang jar) or forge (universal). calls = owner.name(desc) patterns, * = any text.",
+  "anchors": [
+   {
+    "id": "screenInput",
+    "kind": "hand (auto engine re-finds it when autoanchors is on)",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/client/KeyboardHandler",
+      "calls": "net/minecraftforge/client/*.onScreen*",
+      "min": 1
+     },
+     {
+      "in": "game",
+      "class": "net/minecraft/client/MouseHandler",
+      "calls": "net/minecraftforge/client/*.onScreen*",
+      "min": 1
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/client/KeyboardHandler",
+      "calls": "net/minecraft/client/gui/screens/Screen.keyPressed*"
+     }
+    ]
+   },
+   {
+    "id": "extractGui",
+    "kind": "hand",
+    "note": "One shape per Minecraft version; PrepGame handles both (anchorExtractGui / anchorGuiDrawScreen)",
+    "variants": [
+     {
+      "id": "26.1",
+      "checks": [
+       {
+        "in": "game",
+        "class": "net/minecraft/client/renderer/GameRenderer",
+        "method": "extractGui",
+        "desc": "(Lnet/minecraft/client/DeltaTracker;ZZ)V",
+        "calls": "net/minecraftforge/client/ForgeHooksClient.drawScreen*"
+       },
+       {
+        "in": "forge",
+        "class": "net/minecraftforge/client/ForgeHooksClient",
+        "method": "drawScreen"
+       },
+       {
+        "in": "forge",
+        "class": "net/minecraftforge/client/ForgeHooksClient",
+        "method": "drawScreenInternal"
+       },
+       {
+        "in": "forge",
+        "class": "net/minecraftforge/client/ForgeHooksClient",
+        "field": "guiLayers"
+       }
+      ]
+     },
+     {
+      "id": "26.2",
+      "checks": [
+       {
+        "in": "game",
+        "class": "net/minecraft/client/gui/Gui",
+        "method": "extractRenderState",
+        "desc": "(Lnet/minecraft/client/DeltaTracker;ZZ)V",
+        "calls": "*.drawScreen(Lnet/minecraft/client/gui/GuiGraphicsExtractor;IIF)V"
+       },
+       {
+        "in": "vanilla",
+        "class": "net/minecraft/client/gui/Gui",
+        "method": "extractRenderState",
+        "desc": "(Lnet/minecraft/client/DeltaTracker;ZZ)V",
+        "calls": "net/minecraft/client/gui/screens/Screen.extractRenderStateWithTooltipAndSubtitles*"
+       },
+       {
+        "in": "forge",
+        "class": "net/minecraftforge/client/gui/overlay/ForgeLayerInstance",
+        "method": "drawScreen"
+       },
+       {
+        "in": "forge",
+        "class": "net/minecraftforge/client/gui/overlay/ForgeLayerInstance",
+        "method": "drawScreenInternal"
+       },
+       {
+        "in": "forge",
+        "class": "net/minecraftforge/client/gui/overlay/ForgeLayerInstance",
+        "field": "guiLayers"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "language",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/locale/Language",
+      "method": "loadDefault",
+      "desc": "()Lnet/minecraft/locale/Language;",
+      "calls": "*.captureLanguageMap*"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/locale/Language",
+      "method": "loadDefault",
+      "desc": "()Lnet/minecraft/locale/Language;",
+      "calls": "java/util/Map.copyOf*"
+     }
+    ]
+   },
+   {
+    "id": "blockMarker",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/client/particle/BlockMarker",
+      "method": "<init>",
+      "calls": "net/minecraft/client/renderer/block/BlockStateModelSet.get*"
+     },
+     {
+      "in": "game",
+      "class": "net/minecraft/client/particle/BlockMarker",
+      "method": "<init>",
+      "calls": "*.particleMaterial(Lnet/minecraftforge/client/model/data/ModelData;)*"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/client/particle/BlockMarker",
+      "method": "<init>",
+      "calls": "net/minecraft/client/renderer/block/BlockStateModelSet.getParticleMaterial*"
+     },
+     {
+      "in": "forge",
+      "class": "net/minecraftforge/client/model/data/ModelData",
+      "field": "EMPTY"
+     }
+    ]
+   },
+   {
+    "id": "sectionCompiler",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/client/renderer/chunk/SectionCompiler",
+      "calls": "*.tesselateBlock(*Lnet/minecraftforge/client/model/data/ModelData;)V"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/client/renderer/chunk/SectionCompiler",
+      "calls": "*.tesselateBlock*"
+     }
+    ]
+   },
+   {
+    "id": "visibleBlockEntities",
+    "kind": "hand",
+    "note": "LevelRenderer up to 26.1, LevelExtractor from 26.2; same anchor code",
+    "variants": [
+     {
+      "id": "26.1",
+      "checks": [
+       {
+        "in": "game",
+        "class": "net/minecraft/client/renderer/LevelRenderer",
+        "method": "extractVisibleBlockEntities",
+        "desc": "(Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/state/level/LevelRenderState;Lnet/minecraft/client/renderer/culling/Frustum;)V"
+       },
+       {
+        "in": "game",
+        "class": "net/minecraft/client/renderer/LevelRenderer",
+        "ldc": "blockEntities"
+       },
+       {
+        "in": "vanilla",
+        "class": "net/minecraft/client/renderer/LevelRenderer",
+        "method": "extractVisibleBlockEntities",
+        "desc": "(Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/state/level/LevelRenderState;)V"
+       }
+      ]
+     },
+     {
+      "id": "26.2",
+      "checks": [
+       {
+        "in": "game",
+        "class": "net/minecraft/client/renderer/extract/LevelExtractor",
+        "method": "extractVisibleBlockEntities",
+        "desc": "(Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/state/level/LevelRenderState;Lnet/minecraft/client/renderer/culling/Frustum;)V"
+       },
+       {
+        "in": "game",
+        "class": "net/minecraft/client/renderer/extract/LevelExtractor",
+        "ldc": "blockEntities"
+       },
+       {
+        "in": "vanilla",
+        "class": "net/minecraft/client/renderer/extract/LevelExtractor",
+        "method": "extractVisibleBlockEntities",
+        "desc": "(Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/state/level/LevelRenderState;)V"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "id": "swimmable",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/world/entity/Entity",
+      "calls": "*.isInWaterOrSwimmable()Z"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/world/entity/Entity",
+      "method": "isInWater",
+      "desc": "()Z"
+     }
+    ]
+   },
+   {
+    "id": "boatFluid",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/world/entity/vehicle/boat/AbstractBoat",
+      "calls": "*.canBoatInFluid(Lnet/minecraft/world/level/material/FluidState;)Z"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/world/level/material/FluidState",
+      "method": "is",
+      "desc": "(Lnet/minecraft/tags/TagKey;)Z"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/tags/FluidTags",
+      "field": "WATER"
+     }
+    ]
+   },
+   {
+    "id": "bootstrapWrapStreams",
+    "kind": "compat",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/server/Bootstrap",
+      "method": "bootStrap",
+      "desc": "()V",
+      "calls": "net/minecraftforge/registries/GameData.vanillaSnapshot*"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/server/Bootstrap",
+      "method": "wrapStreams",
+      "desc": "()V"
+     }
+    ]
+   },
+   {
+    "id": "originalDamage",
+    "kind": "compat",
+    "checks": [
+     {
+      "in": "game",
+      "class": "net/minecraft/world/entity/LivingEntity",
+      "method": "hurtServer",
+      "desc": "(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z",
+      "calls": "net/minecraft/world/entity/LivingEntity.getUseItem*"
+     },
+     {
+      "in": "vanilla",
+      "class": "net/minecraft/world/entity/LivingEntity",
+      "method": "hurtServer",
+      "desc": "(Lnet/minecraft/server/level/ServerLevel;Lnet/minecraft/world/damagesource/DamageSource;F)Z"
+     }
+    ]
+   }
+  ],
+  "autoKeep": [
+   "net/minecraftforge/common/ForgeHooks.onBlockBreakEvent",
+   "net/minecraftforge/common/ForgeHooks.onLivingDamage",
+   "net/minecraftforge/common/ForgeHooks.onLivingHurt",
+   "net/minecraftforge/common/ForgeHooks.readConditional",
+   "net/minecraftforge/event/ForgeEventFactory.onRightClickEmpty"
+  ],
+  "forgeTransformers": "net.minecraftforge:forge-transformers:26.2-65.1.6"
+ },
+ "compat": {
+  "note": "Modules under bridge/src/alloy/compat with an ENABLED marker (architectury has ENABLED.pending). Mixin targets: see mixinTargets (measured from the bridge jar).",
+  "enabled": [
+   "attributes",
+   "biome",
+   "conditions",
+   "entityevents",
+   "interaction",
+   "itemchunk",
+   "mpforge",
+   "recipesync",
+   "registry",
+   "sodiumforge"
+  ],
+  "pending": [
+   "architectury"
+  ],
+  "replaces": "compat_replaces.txt",
+  "prefit": "installer/res/prefit/",
+  "mixinTargets": {
+   "compat/attributes/AttributeBuilderCompat": {
+    "targets": [
+     "net/fabricmc/fabric/impl/object/builder/FabricDefaultAttributeRegistryImpl"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/biome/BiomeModificationFeaturesCompat": {
+    "targets": [
+     "net/fabricmc/fabric/impl/biome/modification/BiomeModificationImpl"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/conditions/ResourceConditionsCompat": {
+    "targets": [
+     "net/minecraft/server/packs/resources/SimpleJsonResourceReloadListener"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/entityevents/EntityEventsCompat": {
+    "targets": [
+     "net/minecraft/world/entity/LivingEntity"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/entityevents/PlayerDamageCompat": {
+    "targets": [
+     "net/minecraft/world/entity/player/Player"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/interaction/ForgeHooksUseOnCompat": {
+    "targets": [
+     "net/minecraftforge/common/ForgeHooks"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/interaction/ItemStackCompat": {
+    "targets": [
+     "net/minecraft/world/item/ItemStack"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/interaction/MultiPlayerGameModeCompat": {
+    "targets": [
+     "net/minecraft/client/multiplayer/MultiPlayerGameMode"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "client"
+   },
+   "compat/interaction/ServerPlayerGameModeCompat": {
+    "targets": [
+     "net/minecraft/server/level/ServerPlayerGameMode"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/itemchunk/ClientLevelChunkLifecycleMixin": {
+    "targets": [
+     "net/minecraft/world/level/chunk/LevelChunk"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "client"
+   },
+   "compat/itemchunk/EnchantmentHelperFabricMixin": {
+    "targets": [
+     "net/minecraft/world/item/enchantment/EnchantmentHelper"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/itemchunk/RemainderBridgeMixins$ItemRemainder": {
+    "targets": [
+     "net/minecraft/world/item/Item"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/itemchunk/RemainderBridgeMixins$ItemStackRemainder": {
+    "targets": [
+     "net/minecraft/world/item/ItemStack"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/itemchunk/ServerLevelChunkLifecycleMixin": {
+    "targets": [
+     "net/minecraft/world/level/chunk/LevelChunk"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "server"
+   },
+   "compat/mpforge/ForgeClientNoFabricSyncMixin": {
+    "targets": [
+     "net/fabricmc/fabric/impl/registry/sync/RegistrySyncManager"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "server"
+   },
+   "compat/recipesync/IngredientOptionalCodecMixin": {
+    "targets": [
+     "net/minecraft/world/item/crafting/Ingredient"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/registry/DataPackRegistriesFabricMirror": {
+    "targets": [
+     "net/minecraftforge/registries/DataPackRegistriesHooks"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/registry/NamespacedWrapperFabricAliases": {
+    "targets": [
+     "net/minecraftforge/registries/NamespacedWrapper"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/loading/WorldOpenWaitsForForge": {
+    "targets": [
+     "net/minecraft/client/gui/screens/worldselection/WorldOpenFlows"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "client"
+   },
+   "compat/worldgen/ChunkGeneratorFeaturesPerStep": {
+    "targets": [
+     "net/minecraft/world/level/chunk/ChunkGenerator"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/registry/NamespacedWrapperLateRegister": {
+    "targets": [
+     "net/minecraftforge/registries/NamespacedWrapper"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/registry/PoiTypesRegisterTwiceMixin": {
+    "targets": [
+     "net/minecraft/world/entity/ai/village/poi/PoiTypes"
+    ],
+    "config": "alloy.compat.mixins.json",
+    "side": "both"
+   },
+   "compat/sodiumforge/SodiumForgeModelCompat": {
+    "targets": [
+     "net/caffeinemc/mods/sodium/client/render/frapi/FRAPIEmitter"
+    ],
+    "config": null,
+    "side": null
+   },
+   "mixin/CompatMixins$FabricAnnouncesForgeChannels": {
+    "targets": [
+     "net/fabricmc/fabric/impl/networking/AbstractNetworkAddon"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "both"
+   },
+   "mixin/CompatMixins$FabricOwnsRegisterChannel": {
+    "targets": [
+     "net/minecraftforge/network/ChannelListManager"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "both"
+   },
+   "mixin/CompatMixins$FabricRegisterFeedsForge": {
+    "targets": [
+     "net/fabricmc/fabric/impl/networking/AbstractChanneledNetworkAddon"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "both"
+   },
+   "mixin/CompatMixins$NoWrapStreams": {
+    "targets": [
+     "net/minecraft/server/Bootstrap"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "both"
+   },
+   "mixin/CrashReportMixin": {
+    "targets": [
+     "net/minecraft/CrashReport"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "both"
+   },
+   "mixin/MinecraftTickMergeMixin": {
+    "targets": [
+     "net/minecraft/client/Minecraft"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "client"
+   },
+   "mixin/ModsButtonMixin": {
+    "targets": [
+     "net/minecraft/client/gui/screens/Screen"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "client"
+   },
+   "mixin/ReportScreenMixin": {
+    "targets": [
+     "net/minecraft/client/Minecraft",
+     "net/minecraft/client/gui/Gui"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "client"
+   },
+   "mixin/ScreenLogMixin": {
+    "targets": [
+     "net/minecraft/client/Minecraft",
+     "net/minecraft/client/gui/Gui"
+    ],
+    "config": "alloy.mixins.json",
+    "side": "client"
+   }
+  },
+  "oneTarget": [
+   "mixin/ScreenLogMixin",
+   "mixin/ReportScreenMixin"
+  ],
+  "oneTargetNote": "Mixins listed for several targets; ConflictReport.shouldApplyMixin applies each only where setScreen exists (Minecraft up to 26.1, Gui on 26.2)"
+ },
+ "versionStrings": {
+  "note": "Literal values the port checker searches for in *.py, installer/src/**/*.java and bridge/res/*.json. inventory = code lines found on 26.1.2 (doc = comment/docstring only).",
+  "values": {
+   "minecraft": "26.2",
+   "forge": "65.1.6",
+   "fabricApi": "0.161.0",
+   "modlauncher": "10.2.6",
+   "asm": "9.10.1",
+   "mixinExtras": "0.5.5"
+  },
+  "patterns": [
+   {
+    "id": "javaRelease",
+    "regex": "--release\"?,? *\"?25\\b"
+   },
+   {
+    "id": "folder26",
+    "regex": "\\b(mc26|srv26|forge26|neo26|mods_fabric26|fabric26)\\b"
+   }
+  ],
+  "inventory": []
+ },
+ "layout": {
+  "note": "Where the dev tools (launch.py, client_launch.py, prep_game.py, build_bridge.py, client_matrix.py, ...) find this version's files, relative to the run/ folder next to the repo. Read by alloy_version.path().",
+  "fabricLibs": "port262/fabric-libs",
+  "forgeServer": "port262/forge262/srv",
+  "forgeClient": "port262/forge262/client",
+  "vanillaClient": "port262/mojang/client-26.2.jar",
+  "vanillaServer": "port262/mojang/server-26.2-unpacked.jar",
+  "versionJson": "port262/mojang/26.2.json",
+  "serverGameJar": "port262/game_server.jar",
+  "clientGameJar": "port262/game_client.jar",
+  "serverDir": "port262/srvgame",
+  "clientDir": "port262/client",
+  "fmlPatched": "port262/fml",
+  "fabricMods": "port262/fabric",
+  "assets": "port262/assets",
+  "clientLibs": "port262/clientlibs",
+  "matrix": "port262/matrix",
+  "forgeMods": "port262/forgemods_dl",
+  "fabricTop": "port262/fabric_top",
+  "mixinExtrasJar": "real26/cp/mixinextras-fabric-0.5.5.jar",
+  "selftestForgeMods": [
+   "port262/forgemods_dl/tombstone-forge-26.2-9.9.4.jar",
+   "port262/forgemods_dl/fusion-1.3.16-forge-mc26.2.jar"
+  ]
+ },
+ "local": {
+  "note": "Where port_check.py finds this version's jars on this machine. ${root} = the folder above the repo. Read only.",
+  "libRoots": [
+   "${root}/run/port262/forge262/client/libraries",
+   "${root}/run/port262/forge262/srv/libraries",
+   "${root}/run/port262/fabric-libs"
+  ],
+  "vanilla": {
+   "jars": [
+    "${root}/run/port262/mojang/client-26.2.jar"
+   ],
+   "names": "mojang"
+  },
+  "game": {
+   "jars": [
+    "${root}/run/port262/forge262/client/libraries/net/minecraftforge/forge/26.2-65.1.6/forge-26.2-65.1.6-client.jar",
+    "${root}/run/port262/forge262/srv/libraries/net/minecraftforge/forge/26.2-65.1.6/forge-26.2-65.1.6-server.jar"
+   ],
+   "names": "mojang"
+  },
+  "forge": {
+   "jars": [
+    "net.minecraftforge:forge:26.2-65.1.6:universal"
+   ],
+   "names": "mojang"
+  },
+  "fabricApi": {
+   "jar": "${root}/run/port262/dl/fabric-api-0.161.0+26.2.jar",
+   "names": "mojang"
+  },
+  "fabricLoader": "${root}/run/port262/fabric-libs/net/fabricmc/fabric-loader/0.20.1/fabric-loader-0.20.1.jar",
+  "bridgeJar": "${root}/run/hybrid/mods/alloy-bridge.jar",
+  "mappings": {}
+ }
+}

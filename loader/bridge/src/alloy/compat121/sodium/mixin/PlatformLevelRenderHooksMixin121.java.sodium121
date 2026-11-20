@@ -1,0 +1,22 @@
+package alloy.compat121.sodium.mixin;
+
+import alloy.compat121support.sodium.ForgeServices121;
+import net.caffeinemc.mods.sodium.client.services.PlatformLevelRenderHooks;
+import net.caffeinemc.mods.sodium.client.services.Services;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * PlatformLevelRenderHooks.INSTANCE is Sodium's level render hook service, read once in the interface's static initializer through Services.load.
+ * Services itself cannot be mixed: Sodium's mixin plugin loads it (PlatformRuntimeInformation) before any mixin config is
+ * prepared. So the lookup is redirected here, in the interface that is only loaded when the game first meshes a chunk.
+ */
+@Mixin(value = PlatformLevelRenderHooks.class, remap = false)
+public interface PlatformLevelRenderHooksMixin121 {
+    @Redirect(method = "<clinit>", at = @At(value = "INVOKE", target = "Lnet/caffeinemc/mods/sodium/client/services/Services;load(Ljava/lang/Class;)Ljava/lang/Object;"))
+    private static Object alloy$forgeService(Class<?> clazz) {
+        Object s = ForgeServices121.service(clazz);
+        return s != null ? s : Services.load(clazz);
+    }
+}

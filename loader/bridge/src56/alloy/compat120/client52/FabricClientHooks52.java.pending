@@ -1,0 +1,184 @@
+package alloy.compat120.client52;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenMouseEvents;
+import net.fabricmc.fabric.api.event.player.UseEntityCallback;
+import net.fabricmc.fabric.api.item.v1.EnchantingContext;
+import net.fabricmc.fabric.api.item.v1.EnchantmentEvents;
+import net.fabricmc.fabric.api.item.v1.FabricItem;
+import net.fabricmc.fabric.api.util.TriState;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.multiplayer.MultiPlayerGameMode;
+import net.minecraft.client.player.LocalPlayer;
+import net.minecraft.core.Holder;
+import net.minecraft.network.protocol.game.ServerboundInteractPacket;
+import net.minecraft.world.InteractionHand;
+import net.minecraft.world.InteractionResult;
+import net.minecraft.world.entity.Entity;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.ItemStack;
+import net.minecraft.world.item.enchantment.Enchantment;
+import net.minecraft.world.item.enchantment.EnchantmentHelper;
+import net.minecraft.world.phys.EntityHitResult;
+import net.minecraft.world.phys.Vec3;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.21.8 copy (bridge/src56 overlay, Forge 58, Fabric API 0.136): the src54 file plus {@link Drag}. Fabric 0.136 has mouse drag
+ * events and its MouseMixin#invokeMouseDragEvents is stripped on Forge 58, which calls {@code Screen.mouseDragged(DDIDD)Z} in
+ * {@code ForgeHooksClient.onScreenMouseDrag}; Drag wraps that call. The src54 text follows.
+ * Same hooks as the 1.21.1 file,
+ * on the call sites javap shows in these Forge jars:
+ * <ul>
+ *   <li>{@link Keys}, {@link Mouse}: unchanged ({@code ForgeHooksClient.onScreenKeyPressed/onScreenKeyReleased/drawScreenInternal},
+ *       {@code ForgeEventFactoryClient.onScreenMouseClicked/onScreenMouseReleased}).</li>
+ *   <li>{@link Client}: only the client half of UseEntityCallback before {@code MultiPlayerGameMode.interactAt} in
+ *       {@code Minecraft.startUseItem}. The screen tick is in {@code Minecraft.tick} itself here and Fabric's own
+ *       MinecraftClientMixin tick hooks apply, so there is no tick wrap. Only 1.21.4 lists it (1.21.8 keeps Fabric's own
+ *       injectUseEntityCallback).</li>
+ *   <li>{@link ContinueBreaking}: unchanged ({@code MultiPlayerGameMode.sameDestroyTarget}).</li>
+ *   <li>{@link Enchanting}: Forge's check is {@code ItemStack.canApplyAtEnchantingTable(Holder)} in
+ *       {@code EnchantmentHelper.lambda$getAvailableEnchantmentResults$42} (both versions).</li>
+ * </ul>
+ */
+public final class FabricClientHooks52 {
+    private FabricClientHooks52() {}
+
+    @Mixin(targets = "net.minecraftforge.client.ForgeHooksClient", remap = false)
+    public abstract static class Keys {
+        @WrapOperation(method = "onScreenKeyPressed", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;keyPressed(III)Z"))
+        private static boolean alloy$keyPressed(Screen screen, int key, int scancode, int modifiers, Operation<Boolean> original) {
+            if (!ScreenKeyboardEvents.allowKeyPress(screen).invoker().allowKeyPress(screen, key, scancode, modifiers)) return false;
+            ScreenKeyboardEvents.beforeKeyPress(screen).invoker().beforeKeyPress(screen, key, scancode, modifiers);
+            boolean r = original.call(screen, key, scancode, modifiers);
+            ScreenKeyboardEvents.afterKeyPress(screen).invoker().afterKeyPress(screen, key, scancode, modifiers);
+            return r;
+        }
+
+        @WrapOperation(method = "onScreenKeyReleased", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;keyReleased(III)Z"))
+        private static boolean alloy$keyReleased(Screen screen, int key, int scancode, int modifiers, Operation<Boolean> original) {
+            if (!ScreenKeyboardEvents.allowKeyRelease(screen).invoker().allowKeyRelease(screen, key, scancode, modifiers)) return false;
+            ScreenKeyboardEvents.beforeKeyRelease(screen).invoker().beforeKeyRelease(screen, key, scancode, modifiers);
+            boolean r = original.call(screen, key, scancode, modifiers);
+            ScreenKeyboardEvents.afterKeyRelease(screen).invoker().afterKeyRelease(screen, key, scancode, modifiers);
+            return r;
+        }
+
+        @WrapOperation(method = "drawScreenInternal", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;renderWithTooltip(Lnet/minecraft/client/gui/GuiGraphics;IIF)V"))
+        private static void alloy$render(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float delta, Operation<Void> original) {
+            ScreenEvents.beforeRender(screen).invoker().beforeRender(screen, graphics, mouseX, mouseY, delta);
+            original.call(screen, graphics, mouseX, mouseY, delta);
+            ScreenEvents.afterRender(screen).invoker().afterRender(screen, graphics, mouseX, mouseY, delta);
+        }
+    }
+
+    @Mixin(targets = "net.minecraftforge.client.event.ForgeEventFactoryClient", remap = false)
+    public abstract static class Mouse {
+        @WrapOperation(method = "onScreenMouseClicked", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;mouseClicked(DDI)Z"))
+        private static boolean alloy$mouseClicked(Screen screen, double x, double y, int button, Operation<Boolean> original) {
+            if (!ScreenMouseEvents.allowMouseClick(screen).invoker().allowMouseClick(screen, x, y, button)) return false;
+            ScreenMouseEvents.beforeMouseClick(screen).invoker().beforeMouseClick(screen, x, y, button);
+            boolean r = original.call(screen, x, y, button);
+            ScreenMouseEvents.afterMouseClick(screen).invoker().afterMouseClick(screen, x, y, button);
+            return r;
+        }
+
+        @WrapOperation(method = "onScreenMouseReleased", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;mouseReleased(DDI)Z"))
+        private static boolean alloy$mouseReleased(Screen screen, double x, double y, int button, Operation<Boolean> original) {
+            if (!ScreenMouseEvents.allowMouseRelease(screen).invoker().allowMouseRelease(screen, x, y, button)) return false;
+            ScreenMouseEvents.beforeMouseRelease(screen).invoker().beforeMouseRelease(screen, x, y, button);
+            boolean r = original.call(screen, x, y, button);
+            ScreenMouseEvents.afterMouseRelease(screen).invoker().afterMouseRelease(screen, x, y, button);
+            return r;
+        }
+    }
+
+    @Mixin(targets = "net.minecraftforge.client.ForgeHooksClient", remap = false)
+    public abstract static class Drag {
+        @WrapOperation(method = "onScreenMouseDrag", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;mouseDragged(DDIDD)Z"))
+        private static boolean alloy$mouseDragged(Screen screen, double x, double y, int button, double dx, double dy, Operation<Boolean> original) {
+            if (!ScreenMouseEvents.allowMouseDrag(screen).invoker().allowMouseDrag(screen, x, y, button, dx, dy)) return false;
+            ScreenMouseEvents.beforeMouseDrag(screen).invoker().beforeMouseDrag(screen, x, y, button, dx, dy);
+            boolean r = original.call(screen, x, y, button, dx, dy);
+            ScreenMouseEvents.afterMouseDrag(screen).invoker().afterMouseDrag(screen, x, y, button, dx, dy);
+            return r;
+        }
+    }
+
+    @Mixin(value = Minecraft.class, remap = false)
+    public abstract static class Client {
+        @Shadow public LocalPlayer player;
+
+        /** Fabric's MinecraftClientMixin#injectUseEntityCallback, at the same place: before interactAt. */
+        @Inject(method = "startUseItem", remap = false, cancellable = true,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraft/client/multiplayer/MultiPlayerGameMode;interactAt(Lnet/minecraft/world/entity/player/Player;Lnet/minecraft/world/entity/Entity;Lnet/minecraft/world/phys/EntityHitResult;Lnet/minecraft/world/InteractionHand;)Lnet/minecraft/world/InteractionResult;"))
+        private void alloy$useEntityCallback(CallbackInfo ci, @Local InteractionHand hand, @Local EntityHitResult hit, @Local Entity entity) {
+            Minecraft self = (Minecraft) (Object) this;
+            InteractionResult result = UseEntityCallback.EVENT.invoker().interact(player, player.level(), hand, entity, hit);
+            if (result == InteractionResult.PASS) return;
+            if (result.consumesAction()) {
+                Vec3 at = hit.getLocation().subtract(entity.getX(), entity.getY(), entity.getZ());
+                self.getConnection().send(ServerboundInteractPacket.createInteractionPacket(entity, player.isShiftKeyDown(), hand, at));
+            }
+            if (result instanceof InteractionResult.Success success && success.swingSource() == InteractionResult.SwingSource.CLIENT) player.swing(hand);
+            ci.cancel();
+        }
+    }
+
+    @Mixin(value = MultiPlayerGameMode.class, remap = false)
+    public abstract static class ContinueBreaking {
+        @WrapOperation(method = "sameDestroyTarget", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/item/ItemStack;shouldCauseBlockBreakReset(Lnet/minecraft/world/item/ItemStack;)Z"))
+        private boolean alloy$allowContinuing(ItemStack old, ItemStack now, Operation<Boolean> original) {
+            boolean reset = original.call(old, now);
+            if (!reset || !old.is(now.getItem()) || ItemStack.isSameItemSameComponents(old, now)) return reset;
+            Minecraft mc = Minecraft.getInstance();
+            return !((FabricItem) old.getItem()).allowContinuingBlockBreaking(mc.player, old, now);
+        }
+    }
+
+    @Mixin(value = EnchantmentHelper.class, remap = false)
+    public abstract static class Enchanting {
+        @Unique private static final Map<Class<?>, Boolean> alloy$overrides = new ConcurrentHashMap<>();
+
+        @WrapOperation(method = "lambda$getAvailableEnchantmentResults$42", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/world/item/ItemStack;canApplyAtEnchantingTable(Lnet/minecraft/core/Holder;)Z"))
+        private static boolean alloy$fabricEnchanting(ItemStack stack, Holder<Enchantment> holder, Operation<Boolean> original) {
+            TriState t = EnchantmentEvents.ALLOW_ENCHANTING.invoker().allowEnchanting(holder, stack, EnchantingContext.PRIMARY);
+            if (t != TriState.DEFAULT) return t.get();
+            Item item = stack.getItem();
+            if (alloy$overrides.computeIfAbsent(item.getClass(), c -> alloy$overridesCheck(c)))
+                return ((FabricItem) item).canBeEnchantedWith(stack, holder, EnchantingContext.PRIMARY);
+            return original.call(stack, holder);
+        }
+
+        @Unique
+        private static boolean alloy$overridesCheck(Class<?> c) {
+            try {
+                return c.getMethod("canBeEnchantedWith", ItemStack.class, Holder.class, EnchantingContext.class).getDeclaringClass() != FabricItem.class;
+            } catch (NoSuchMethodException e) {
+                return false;
+            }
+        }
+    }
+}

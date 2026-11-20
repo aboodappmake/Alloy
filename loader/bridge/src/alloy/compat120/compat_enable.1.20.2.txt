@@ -1,0 +1,42 @@
+# compat120 sources built for 1.20.2 (launch120.py, profile tools.compatLists.enable).
+# Forge reads sprites[2] (overlay) in its tesselate, Fabric's fluid handler gives two (as on 1.20.1 and 1.20.4)
+fluid/LiquidBlockRendererCompat120
+# Balm registers its creative tabs twice with the same object; Fabric registry sync throws, vanilla only warns (as on 1.20.1/1.20.4)
+registry/MappedRegistryCompat120
+# Fabric's SaveLoadingMixin drops Forge's data pack registries (forge:biome_modifier); replaced as on 1.20.1/1.20.4
+registry/WorldLoaderCompat120
+# Fabric mods that register blocks and items in onInitialize (Forge's NamespacedWrapper is locked by then), and a BlockItem
+# registered before its Block; same NamespacedWrapper/ForgeRegistry/BlockItem shapes as 1.20.1 and 1.20.4 (javap, Forge 48.1.0)
+registry/NamespacedWrapperLateRegister120
+block/BlockItemRegisterCompat120
+# Creative tabs: Forge is the only pager, Fabric's page mirrors it (Fabric's screen injectors stripped in compat_replaces)
+gui/CreativeTabPagesCompat120
+# Fabric color providers: fabric-rendering-v1 BlockColorsMixin/ItemColorsMixin are stripped, these call initialize and get
+color/BlockColorsCompat120
+color/ItemColorsCompat120
+# duplicate key binding names (keybind bridge plan section 4) and late Fabric keys with -Dalloy.fabricAfterForge (section 5)
+input/KeyMappingAllAccess120
+input/OptionsKeyDedupe120
+input/LateFabricKeys120
+# Forge 48 reads forge:handshake and mod channels only from vanilla's DiscardedPayload, Fabric's readPayload mixin made them
+# Fabric payloads, so a LAN or server join hung at "Unknown custom packet payload: forge:handshake" (lantest 1.20.2 c1).
+# Same packet shapes and NetworkRegistry.findTarget as Forge 49 (javap, Forge 48.1.0)
+net49/ForgePayloadsStayForge49
+# the strip of ClientConnectionMixin#disconnectAddon also took Fabric's channelInactive hook: Fabric's DISCONNECT events never
+# fired (lantest 1.20.2 d1). Puts that hook back
+net49/FabricDisconnect48
+# Forge 48 starts its event bus after Quick Play connects, as Forge 49 (sodium1202: a Quick Play world lost Rechiseled's
+# chiseling recipe reload listener, "Couldn't place player in world"): start it right before Quick Play, as on 1.20.4
+client49/QuickPlayForgeBus49
+# a Fabric mod's login query (Forge Config API Port) reached Forge's login hook, whose getInternalData casts to
+# DiscardedQueryPayload: ClassCastException, integrated server join failed (reg051 1.20.4). Forge sees only payloads it can read
+net49/FabricLoginQuery49
+# client UseEntityCallback: Fabric's MinecraftClientMixin#injectUseEntityCallback is stripped (Forge's extra local in
+# startUseItem); same hook before interactAt with the locals read by type (same startUseItem shape as 1.20.1 and 1.20.4, javap)
+interaction/UseEntityClientCompat120
+# WorldRenderEvents.AFTER_TRANSLUCENT: Fabric's particle flag set after Forge's 6-argument ParticleEngine.render (same
+# renderLevel descriptor and particle call as Forge 47, javap)
+gui/AfterTranslucentCompat120
+# ScreenKeyboardEvents, ScreenEvents before/afterRender and before/afterTick around Forge's calls (src49 overlay: Forge 48
+# and 49 name the screen tick lambda lambda$tick$49 and lambda$tick$50; key lambda and drawScreen as on Forge 47, javap)
+gui/ScreenEventsCompat120

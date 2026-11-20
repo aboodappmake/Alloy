@@ -1,0 +1,19 @@
+{
+ "required": false,
+ "minVersion": "0.8",
+ "package": "alloy.compat.viewers",
+ "plugin": "alloy.viewers.ViewersMixinPlugin",
+ "compatibilityLevel": "JAVA_21",
+ "mixins": [
+  "ReiMixins",
+  "ModListViewers",
+  "ModListViewers$Instance"
+ ],
+ "client": [
+  "JeiMixins$FabricFinder",
+  "JeiMixins$LateAdd"
+ ],
+ "injectors": {
+  "defaultRequire": 0
+ }
+}

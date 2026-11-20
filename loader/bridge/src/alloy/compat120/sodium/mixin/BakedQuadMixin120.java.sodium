@@ -1,0 +1,25 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.QuadFix120;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.Direction;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * R0. Sodium 0.5's BakedQuadMixin computes the quad normal, normal face and flags at RETURN of the vanilla 5-argument
+ * constructor only. Forge 47 adds a 6-argument one (..., shade, hasAmbientOcclusion) that FaceBakery,
+ * QuadBakingVertexConsumer and the quad transformers call directly, so those quads would have normalFace == null and the
+ * chunk mesher fails on them. The 5-argument constructor delegates to the 6-argument one, so this covers every quad.
+ */
+@Mixin(value = BakedQuad.class, remap = false, priority = 1100)
+public abstract class BakedQuadMixin120 {
+    @Inject(method = "<init>([IILnet/minecraft/core/Direction;Lnet/minecraft/client/renderer/texture/TextureAtlasSprite;ZZ)V", at = @At("RETURN"))
+    private void alloy$sodiumQuadData(int[] vertices, int tintIndex, Direction face, TextureAtlasSprite sprite, boolean shade,
+                                      boolean ao, CallbackInfo ci) {
+        QuadFix120.init((BakedQuad) (Object) this, face);
+    }
+}

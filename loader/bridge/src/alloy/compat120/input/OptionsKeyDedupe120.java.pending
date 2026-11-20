@@ -1,0 +1,58 @@
+package alloy.compat120.input;
+
+import alloy.Bridge;
+import alloy.KeyMapView;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Options;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Two key bindings with one name. Vanilla's constructor does
+ * {@code ALL.put(name, this)} and resetMapping walks {@code ALL.values()}, so the mapping constructed first is never put
+ * back into Forge's lookup: it shows in Controls and never fires. On Alloy the Fabric copy is constructed first (early in
+ * Minecraft.&lt;init&gt;) but sits before the Forge copy in options.keyMappings.
+ *
+ * <p>Rule ({@link KeyMapView#dedupe}): the same mod twice (same name, category, default key and modifier) keeps the live
+ * copy, the one in ALL, and drops the other from keyMappings; two different mods keep both and the non-ALL one is made live
+ * again after every resetMapping ({@link KeyMapView#afterReset}). They share one key_&lt;name&gt; line in options.txt.
+ *
+ * <p>HEAD of load(Z)V: before values are read, on the constructor's load() (Forge forwards it to load(false), after
+ * Fabric's HEAD inject on load()V appended the Fabric keys) and on load(true) from ClientModLoader.finishModLoading (after
+ * RegisterKeyMappingsEvent appended the Forge keys). load(boolean) exists on Forge 47 to 64.
+ */
+@Mixin(value = Options.class, remap = false)
+public abstract class OptionsKeyDedupe120 {
+    @Inject(method = "load(Z)V", at = @At("HEAD"), remap = false)
+    private void alloy$dedupeKeys(boolean limited, CallbackInfo ci) {
+        Options o = (Options) (Object) this;
+        KeyMapping[] keys = o.keyMappings;
+        if (keys == null) return;
+        Map<String, KeyMapping> all = KeyMappingAllAccess120.alloy$all();
+        List<KeyMapView.KeyRow> rows = new ArrayList<>(keys.length);
+        for (KeyMapping k : keys)
+            rows.add(new KeyMapView.KeyRow(k.getName(), k.getCategory(), k.getDefaultKey(), k.getDefaultKeyModifier(), all.get(k.getName()) == k));
+        List<KeyMapView.Dedupe> d = KeyMapView.dedupe(rows);
+        if (!d.contains(KeyMapView.Dedupe.DROP) && !d.contains(KeyMapView.Dedupe.ORPHAN)) return;
+        List<KeyMapping> keep = new ArrayList<>(keys.length);
+        for (int i = 0; i < keys.length; i++) {
+            KeyMapping k = keys[i];
+            switch (d.get(i)) {
+                case DROP -> Bridge.LOG.info("Alloy: key binding {} registered twice (Fabric and Forge copies), keeping the live one", k.getName());
+                case ORPHAN -> {
+                    keep.add(k);
+                    if (KeyMapView.orphan(k))
+                        Bridge.LOG.warn("Alloy: two mods register key binding {} ({} and {}); both work, but they share one options.txt line, so they always get the same key after a restart",
+                                k.getName(), k.getClass().getName(), all.get(k.getName()) == null ? "?" : all.get(k.getName()).getClass().getName());
+                }
+                default -> keep.add(k);
+            }
+        }
+        if (keep.size() != keys.length) o.keyMappings = keep.toArray(new KeyMapping[0]);
+    }
+}

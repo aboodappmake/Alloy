@@ -1,0 +1,256 @@
+package alloy.compat120support.sodium;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.ChunkBuildBuffers;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer;
+import me.jellysquid.mods.sodium.client.render.chunk.terrain.material.DefaultMaterials;
+import me.jellysquid.mods.sodium.client.render.chunk.terrain.material.Material;
+import me.jellysquid.mods.sodium.client.world.WorldSlice;
+import net.fabricmc.fabric.api.client.render.fluid.v1.FluidRenderHandler;
+import net.fabricmc.loader.api.FabricLoader;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.client.renderer.ItemBlockRenderTypes;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.ChunkPos;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraft.world.level.levelgen.SingleThreadedRandomSource;
+import net.minecraft.world.level.material.Fluid;
+import net.minecraft.world.level.material.FluidState;
+import net.minecraft.world.level.material.Fluids;
+import net.minecraftforge.client.ChunkRenderTypeSet;
+import net.minecraftforge.client.ForgeHooksClient;
+import net.minecraftforge.client.extensions.common.IClientFluidTypeExtensions;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelDataManager;
+import org.apache.logging.log4j.LogManager;
+import org.apache.logging.log4j.Logger;
+
+import java.lang.invoke.MethodHandle;
+import java.lang.invoke.MethodHandles;
+import java.lang.invoke.MethodType;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.IdentityHashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+
+/**
+ * Forge 47 features in Fabric Sodium 0.5's chunk mesher (Minecraft 1.20.1). Called from the mixins in
+ * alloy.compat120.sodium.mixin, which are only applied when Sodium 0.5.x is installed (SodiumPlugin120).
+ *
+ * <p>Ported ideas from Embeddium 0.3.31 (Sodium 0.5 for Forge): per-model render types, ModelData snapshot on the main
+ * thread, Forge fluids, face hiding, per-layer render stage events. The code is new; it works through mixins into the real
+ * Fabric Sodium instead of a fork.
+ */
+public final class SodiumForge120 {
+    public static final Logger LOG = LogManager.getLogger("Alloy/Sodium");
+    public static final boolean INDIUM = FabricLoader.getInstance().isModLoaded("indium");
+    public static final boolean IRIS = FabricLoader.getInstance().isModLoaded("iris");
+
+    private SodiumForge120() { }
+
+    // ---------------------------------------------------------------- R2: ModelData snapshot (main thread)
+
+    /** Non-empty ModelData of one 16x16x16 section, copied on the main thread (task constructor). Forge 47's
+     *  ModelDataManager.getAt refreshes and calls BlockEntity.getModelData(), so it must not run on a worker. */
+    public static Map<BlockPos, ModelData> snapshot(int ox, int oy, int oz) {
+        try {
+            ClientLevel level = Minecraft.getInstance().level;
+            if (level == null) return Collections.emptyMap();
+            ModelDataManager mgr = level.getModelDataManager();
+            if (mgr == null) return Collections.emptyMap();
+            Map<BlockPos, ModelData> chunk = mgr.getAt(new ChunkPos(ox >> 4, oz >> 4));
+            if (chunk == null || chunk.isEmpty()) return Collections.emptyMap();
+            Map<BlockPos, ModelData> out = null;
+            for (Map.Entry<BlockPos, ModelData> e : chunk.entrySet()) {
+                ModelData d = e.getValue();
+                BlockPos p = e.getKey();
+                if (d == null || d == ModelData.EMPTY || p == null) continue;
+                if (p.getX() < ox || p.getX() >= ox + 16 || p.getY() < oy || p.getY() >= oy + 16 || p.getZ() < oz || p.getZ() >= oz + 16) continue;
+                if (out == null) out = new HashMap<>();
+                out.put(p.immutable(), d);
+            }
+            return out == null ? Collections.emptyMap() : out;
+        } catch (RuntimeException e) {
+            warnOnce("snapshot", "ModelData snapshot failed; this section meshes without Forge model data", e);
+            return Collections.emptyMap();
+        }
+    }
+
+    // ---------------------------------------------------------------- R1 + R2 + R10: one renderModel per Forge render type
+
+    private static final ThreadLocal<RandomSource> RAND = ThreadLocal.withInitial(() -> new SingleThreadedRandomSource(42L));
+    private static final Map<RenderType, List<RenderType>> SINGLE = new IdentityHashMap<>();
+    private static final Map<RenderType, Material> MATERIALS = new IdentityHashMap<>();
+    static {
+        for (RenderType t : RenderType.chunkBufferLayers()) {
+            SINGLE.put(t, List.of(t));
+            try { MATERIALS.put(t, DefaultMaterials.forRenderLayer(t)); } catch (IllegalArgumentException ignored) { }
+        }
+    }
+
+    /** Replaces Sodium's single BlockRenderer.renderModel call: asks the model for its ModelData and Forge render types and
+     *  meshes once per type, with the type and data on the context (read by BlockRendererMixin120). */
+    public static void renderModel(BlockRenderer renderer, BlockRenderContext ctx, ChunkBuildBuffers buffers, Operation<Void> original,
+                                   Map<BlockPos, ModelData> snapshot) {
+        BakedModel model = ctx.model();
+        BlockState state = ctx.state();
+        // Indium meshes FRAPI models itself (in the same call, through its redirect); it would draw them once per type.
+        if (INDIUM && !Indium120.isVanillaAdapter(model)) {
+            original.call(renderer, ctx, buffers);
+            return;
+        }
+        WorldSlice slice = ctx.world();
+        Map<BlockPos, ModelData> snap = snapshot == null ? Collections.emptyMap() : snapshot;
+        ((WorldSliceExt120) (Object) slice).alloy$setModelData(snap);
+        BlockRenderContextExt120 ext = (BlockRenderContextExt120) (Object) ctx;
+        ModelData data = snap.isEmpty() ? ModelData.EMPTY : snap.getOrDefault(ctx.pos(), ModelData.EMPTY);
+        data = model.getModelData(slice, ctx.pos(), state, data);
+        if (data == null) data = ModelData.EMPTY;
+        RandomSource rand = RAND.get();
+        rand.setSeed(ctx.seed());
+        Iterable<RenderType> types = renderTypes(model, state, rand, data);
+        try {
+            for (RenderType t : types) {
+                ext.alloy$set(t, data);
+                original.call(renderer, ctx, buffers);
+            }
+        } finally {
+            ext.alloy$set(null, ModelData.EMPTY);
+        }
+    }
+
+    /**
+     * Forge's render types for this block. Two fallbacks keep what plain Sodium already did right:
+     * <ul>
+     * <li>Iris shader pack layer overrides (block.properties) win; Iris applies them in getChunkRenderType.</li>
+     * <li>Fabric mods set layers with BlockRenderLayerMap, which on Forge 47 only fills the vanilla map that
+     * getChunkRenderType reads, not Forge's BLOCK_RENDER_TYPES. If Forge says "solid only" and the vanilla map says
+     * otherwise, the vanilla map wins.</li>
+     * </ul>
+     */
+    public static Iterable<RenderType> renderTypes(BakedModel model, BlockState state, RandomSource rand, ModelData data) {
+        RenderType legacy = ItemBlockRenderTypes.getChunkRenderType(state);
+        if (IRIS && Iris120.hasLayerOverride(state)) return single(legacy);
+        ChunkRenderTypeSet set = model.getRenderTypes(state, rand, data);
+        if (set == null) return single(legacy);
+        if (legacy != RenderType.solid() && isSolidOnly(set)) return single(legacy);
+        return set;
+    }
+
+    private static boolean isSolidOnly(ChunkRenderTypeSet set) {
+        List<RenderType> l = set.asList();
+        return l.size() == 1 && l.get(0) == RenderType.solid();
+    }
+
+    private static Iterable<RenderType> single(RenderType t) {
+        List<RenderType> l = SINGLE.get(t);
+        return l != null ? l : List.of(t);
+    }
+
+    /** Sodium material of a chunk render type, or null for a type Sodium has no pass for. */
+    public static Material material(RenderType t) {
+        return MATERIALS.get(t);
+    }
+
+    // ---------------------------------------------------------------- R3: Flywheel block entities
+
+    private static volatile MethodHandle flywheel;
+    private static volatile boolean flywheelChecked;
+
+    /** True when Flywheel takes this block entity (it then draws it as a visual and Sodium must not list it). Flywheel 1.0
+     *  (Create 6) or 0.6 (Create 0.5.1); a no-op without Flywheel. Same call Flywheel's own Fabric Sodium 0.5 mixin makes. */
+    public static boolean flywheelTakes(BlockEntity be) {
+        if (!flywheelChecked) findFlywheel();
+        MethodHandle h = flywheel;
+        if (h == null) return false;
+        try {
+            return (boolean) h.invokeExact(be);
+        } catch (Throwable t) {
+            warnOnce("flywheel", "Flywheel tryAddBlockEntity failed; block entities fall back to their renderer", t);
+            flywheel = null;
+            return false;
+        }
+    }
+
+    private static synchronized void findFlywheel() {
+        if (flywheelChecked) return;
+        String[][] apis = {
+                {"dev.engine_room.flywheel.lib.visualization.VisualizationHelper", "Flywheel 1.0"},
+                {"com.jozufozu.flywheel.backend.instancing.InstancedRenderDispatcher", "Flywheel 0.6"}};
+        for (String[] api : apis) {
+            for (ClassLoader cl : new ClassLoader[]{SodiumForge120.class.getClassLoader(), Thread.currentThread().getContextClassLoader()}) {
+                if (cl == null) continue;
+                try {
+                    Class<?> c = Class.forName(api[0], true, cl);
+                    flywheel = MethodHandles.publicLookup().findStatic(c, "tryAddBlockEntity",
+                            MethodType.methodType(boolean.class, BlockEntity.class));
+                    LOG.info("Sodium chunk block entities are offered to {} ({})", api[1], api[0]);
+                    flywheelChecked = true;
+                    return;
+                } catch (ClassNotFoundException | LinkageError ignored) {
+                } catch (ReflectiveOperationException e) {
+                    LOG.warn("{} found but tryAddBlockEntity(BlockEntity) is missing: {}", api[1], e.toString());
+                }
+            }
+        }
+        flywheelChecked = true;
+    }
+
+    // ---------------------------------------------------------------- R4: Forge fluids
+
+    private static final Map<Fluid, Object> FLUIDS = new ConcurrentHashMap<>();
+    private static final Object NONE = new Object();
+
+    /** A Fabric FluidRenderHandler for a Forge fluid that has none, from its IClientFluidTypeExtensions; null otherwise. */
+    public static FluidRenderHandler forgeFluid(Fluid fluid) {
+        if (fluid == null || fluid == Fluids.EMPTY || fluid == Fluids.WATER || fluid == Fluids.FLOWING_WATER
+                || fluid == Fluids.LAVA || fluid == Fluids.FLOWING_LAVA) return null;
+        Object h = FLUIDS.computeIfAbsent(fluid, f -> {
+            try {
+                IClientFluidTypeExtensions ext = IClientFluidTypeExtensions.of(f);
+                if (ext == null || ext == IClientFluidTypeExtensions.DEFAULT || ext.getStillTexture() == null || ext.getFlowingTexture() == null)
+                    return NONE;
+                return new ForgeFluidHandler();
+            } catch (RuntimeException | LinkageError e) {
+                warnOnce("fluid", "Forge fluid lookup failed for " + f, e);
+                return NONE;
+            }
+        });
+        return h instanceof FluidRenderHandler r ? r : null;
+    }
+
+    static final class ForgeFluidHandler implements FluidRenderHandler {
+        @Override public TextureAtlasSprite[] getFluidSprites(BlockAndTintGetter view, BlockPos pos, FluidState state) {
+            TextureAtlasSprite[] s = ForgeHooksClient.getFluidSprites(view, pos, state);
+            if (s.length > 2 && s[2] == null) {   // Sodium reads index 2 as the overlay whenever the array has 3 slots
+                TextureAtlasSprite[] r = new TextureAtlasSprite[2];
+                r[0] = s[0];
+                r[1] = s[1];
+                s = r;
+            }
+            return s;
+        }
+
+        @Override public int getFluidColor(BlockAndTintGetter view, BlockPos pos, FluidState state) {
+            return IClientFluidTypeExtensions.of(state).getTintColor(state, view, pos);
+        }
+    }
+
+    // ---------------------------------------------------------------- misc
+
+    private static final Map<String, Boolean> WARNED = new ConcurrentHashMap<>();
+
+    static void warnOnce(String key, String msg, Throwable t) {
+        if (WARNED.putIfAbsent(key, Boolean.TRUE) == null) LOG.warn(msg, t);
+    }
+}

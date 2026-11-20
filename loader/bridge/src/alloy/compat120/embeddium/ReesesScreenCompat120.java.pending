@@ -1,0 +1,26 @@
+package alloy.compat120.embeddium;
+
+import alloy.compat120support.embeddium.EmbeddiumFabricPages;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.screens.Screen;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Reese's Sodium Options (Fabric) opens its own screen at the end of SodiumOptionsGUI.init. Under Embeddium that runs
+ * right after Embeddium opened its built-in copy of the same screen (with search, the shader tab and the per-mod tabs), so
+ * Reese's replaced it. Alloy keeps Embeddium's screen; Reese's control tweaks still apply.
+ * -Dalloy.embeddium.reesesScreen=true gives Reese's screen back.
+ */
+@Mixin(value = Minecraft.class, remap = false)
+public abstract class ReesesScreenCompat120 {
+    @Shadow public Screen screen;
+
+    @Inject(method = "setScreen", at = @At("HEAD"), cancellable = true, remap = false, require = 0)
+    private void alloy$keepEmbeddiumScreen(Screen next, CallbackInfo ci) {
+        if (EmbeddiumFabricPages.keepEmbeddiumScreen(this.screen, next)) ci.cancel();
+    }
+}

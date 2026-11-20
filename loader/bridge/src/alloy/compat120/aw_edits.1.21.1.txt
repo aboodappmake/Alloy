@@ -1,0 +1,6 @@
+# Access widener changes for Fabric API on 1.21.1 Forge (see aw_edits.1.20.4.txt for the format).
+# Forge's coremod field_to_method.js stops on Biome.climateSettings once Fabric's biome AW widened it ("Field climateSettings
+# is not private and an instance field"), as on 1.20.x. Fabric's weather setters then read and write Forge's biome info instead
+# (biome.BiomeWeatherCompat120, src52 overlay), so the feature is kept on 1.21.1.
+drop accessible field net/minecraft/world/level/biome/Biome climateSettings
+drop mutable field net/minecraft/world/level/biome/Biome climateSettings

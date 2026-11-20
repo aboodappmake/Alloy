@@ -1,0 +1,157 @@
+package alloy.compat120.net;
+
+import java.util.ArrayList;
+import java.util.Collections;
+import java.util.List;
+import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.atomic.AtomicInteger;
+import net.fabricmc.fabric.impl.networking.server.ServerLoginNetworkAddon;
+import net.fabricmc.fabric.impl.networking.server.ServerNetworkingImpl;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.Packet;
+import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraft.server.network.ServerLoginPacketListenerImpl;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92): Fabric's server login addon must not wait for Forge's login queries.
+ *
+ * <p>Fabric records every ClientboundCustomQueryPacket the connection sends (ServerLoginNetworkHandlerMixin#sent), Forge's
+ * fml:loginwrapper queries included, and only lets the player in when that map is empty. Forge's S2CModData (and any mod login
+ * packet marked noResponse) is never answered, so the entry stays and the player is kicked after 30 s with "Took too long to
+ * log in". Which packs hang depends on the Forge query ids: Fabric's own ids also start at 0 and can overwrite the stale one.
+ *
+ * <p>Same fix as Forgified Fabric API 1.20.1 (243b4299, 46fcf87e, 47fce50c): Fabric's query ids start at 999, queries Fabric did
+ * not create and has no handler for are not recorded, and their replies go straight to Forge without a warning.
+ *
+ * <p>Also, once per game: a startup line for channel ids that both a Fabric global receiver and a Forge channel claim (Fabric's
+ * payload handler runs first, so Forge never sees them), and a probe that says whether the Forge network mixins of this config
+ * applied.
+ */
+@Mixin(value = ServerLoginNetworkAddon.class, remap = false)
+public abstract class ServerLoginAddonCompat120 {
+    @Unique private static final Logger ALLOY$LOG = LoggerFactory.getLogger("Alloy");
+    @Unique private static volatile boolean alloy$checked;
+
+    @Shadow @Final private ServerLoginPacketListenerImpl handler;
+
+    @Unique private final AtomicInteger alloy$nextId = new AtomicInteger(999);
+    @Unique private final Set<Integer> alloy$ownIds = ConcurrentHashMap.newKeySet();
+    @Unique private final Set<Integer> alloy$ignored = ConcurrentHashMap.newKeySet();
+    @Unique private final AtomicInteger alloy$ignoredCount = new AtomicInteger();
+    @Unique private boolean alloy$done;
+
+    @Inject(method = "<init>", at = @At("RETURN"))
+    private void alloy$once(ServerLoginPacketListenerImpl handler, CallbackInfo ci) {
+        if (alloy$checked) return;
+        alloy$checked = true;
+        try {
+            alloy$startupChecks();
+        } catch (Throwable t) {
+            ALLOY$LOG.warn("Alloy net compat: startup checks failed: {}", t.toString());
+        }
+    }
+
+    /** Fabric's query ids start at 999, away from Forge's 0, 1, 2 ... (Forge numbers its login packets per connection). */
+    @Inject(method = "createPacket(Lnet/minecraft/resources/ResourceLocation;Lnet/minecraft/network/FriendlyByteBuf;)Lnet/minecraft/network/protocol/Packet;",
+            at = @At("HEAD"), cancellable = true)
+    private void alloy$fabricIds(ResourceLocation channel, FriendlyByteBuf buf, CallbackInfoReturnable<Packet<?>> cir) {
+        int id = alloy$nextId.getAndIncrement();
+        alloy$ownIds.add(id);
+        cir.setReturnValue(new ClientboundCustomQueryPacket(id, channel, buf));
+    }
+
+    /** Only Fabric's queries are tracked. Anything else (Forge's fml:loginwrapper) is remembered as ignored. */
+    @Inject(method = "registerOutgoingPacket(Lnet/minecraft/network/protocol/login/ClientboundCustomQueryPacket;)V", at = @At("HEAD"), cancellable = true)
+    private void alloy$onlyFabric(ClientboundCustomQueryPacket packet, CallbackInfo ci) {
+        int id = packet.getTransactionId();
+        if (alloy$ownIds.remove(id) || ServerNetworkingImpl.LOGIN.getHandler(packet.getIdentifier()) != null) return;
+        alloy$ignored.add(id);
+        alloy$ignoredCount.incrementAndGet();
+        ci.cancel();
+    }
+
+    /** A reply to an ignored query is Forge's: return "not handled" at once (no "Query ID ... no query" warning). */
+    @Inject(method = "handle(ILnet/minecraft/network/FriendlyByteBuf;)Z", at = @At("HEAD"), cancellable = true)
+    private void alloy$forgeReply(int queryId, FriendlyByteBuf buf, CallbackInfoReturnable<Boolean> cir) {
+        if (alloy$ignored.remove(queryId)) cir.setReturnValue(false);
+    }
+
+    @Inject(method = "queryTick()Z", at = @At("RETURN"))
+    private void alloy$logDone(CallbackInfoReturnable<Boolean> cir) {
+        if (alloy$done || !cir.getReturnValueZ()) return;
+        alloy$done = true;
+        ALLOY$LOG.info("Alloy net compat: Fabric login queries done for {} ({} Forge login queries left to Forge, {} unanswered)",
+                alloy$playerName(handler), alloy$ignoredCount.get(), alloy$ignored.size());
+    }
+
+    /** The player's name from the listener's GameProfile field; getUserName() prints the whole GameProfile on 1.20.1. */
+    @Unique
+    private static String alloy$playerName(ServerLoginPacketListenerImpl h) {
+        try {
+            for (java.lang.reflect.Field f : ServerLoginPacketListenerImpl.class.getDeclaredFields())
+                if (f.getType() == com.mojang.authlib.GameProfile.class) {
+                    f.setAccessible(true);
+                    com.mojang.authlib.GameProfile p = (com.mojang.authlib.GameProfile) f.get(h);
+                    if (p != null && p.getName() != null) return p.getName();
+                }
+        } catch (Throwable ignored) {
+            // fall back below
+        }
+        return h.getUserName();
+    }
+
+    @Unique
+    private static void alloy$startupChecks() {
+        // channel ids claimed by both stacks: Fabric's HEAD inject in handleCustomPayload wins, Forge's channel never gets data
+        Set<String> fabric = new TreeSet<>();
+        for (ResourceLocation id : ServerNetworkingImpl.PLAY.getChannels()) fabric.add(id.toString());
+        try {
+            Class<?> c = Class.forName("net.fabricmc.fabric.impl.networking.client.ClientNetworkingImpl");
+            Object play = c.getField("PLAY").get(null);
+            for (Object id : (Set<?>) play.getClass().getMethod("getChannels").invoke(play)) fabric.add(id.toString());
+        } catch (Throwable ignored) {
+            // dedicated server: no client receivers
+        }
+        List<String> forge = new ArrayList<>();
+        try {
+            java.lang.reflect.Method m = Class.forName("net.minecraftforge.network.NetworkRegistry").getDeclaredMethod("buildChannelVersions");
+            m.setAccessible(true);
+            for (Object id : ((java.util.Map<?, ?>) m.invoke(null)).keySet()) forge.add(id.toString());
+        } catch (Throwable t) {
+            ALLOY$LOG.warn("Alloy net compat: could not read Forge's channel list ({})", t.toString());
+        }
+        List<String> both = new ArrayList<>();
+        for (String id : forge) if (fabric.contains(id)) both.add(id);
+        Collections.sort(both);
+        if (both.isEmpty()) {
+            ALLOY$LOG.info("Alloy net compat: no channel id is claimed by both Fabric and Forge ({} Fabric, {} Forge channels)", fabric.size(), forge.size());
+        } else {
+            ALLOY$LOG.warn("Alloy net compat: channel ids claimed by both a Fabric receiver and a Forge channel (Fabric gets the data, Forge's channel gets nothing): {}", both);
+        }
+        // F6 probe: ConnectionType.forVersionFlag(null) is VANILLA only when ConnectionTypeCompat120 applied
+        String f6;
+        try {
+            Class<?> ct = Class.forName("net.minecraftforge.network.ConnectionType");
+            Object r = ct.getMethod("forVersionFlag", String.class).invoke(null, (Object) null);
+            f6 = "applied (forVersionFlag(null) = " + r + ")";
+        } catch (java.lang.reflect.InvocationTargetException e) {
+            f6 = "NOT applied (forVersionFlag(null) threw " + e.getCause() + ")";
+        } catch (Throwable t) {
+            f6 = "unknown (" + t + ")";
+        }
+        ALLOY$LOG.info("Alloy net compat: Fabric login query fix active; Forge network mixins {}", f6);
+    }
+}

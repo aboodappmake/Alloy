@@ -1,0 +1,38 @@
+package alloy.compat120support;
+
+import it.unimi.dsi.fastutil.ints.AbstractInt2ObjectMap;
+import it.unimi.dsi.fastutil.ints.Int2ObjectMap;
+import it.unimi.dsi.fastutil.objects.ObjectArraySet;
+import it.unimi.dsi.fastutil.objects.ObjectSet;
+import java.util.Map;
+import net.minecraft.client.particle.ParticleProvider;
+import net.minecraft.core.particles.ParticleType;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.resources.ResourceLocation;
+
+/* 1.21.4 to 1.21.8 copy (bridge/src54 overlay): Registry.get(ResourceLocation) returns an Optional holder since 1.21.2; getValue is the old lookup. */
+/** Raw particle type id view of Forge's ResourceLocation-keyed provider map, for alloy.compat120.particle.ParticleEngineCompat120.
+ *  Outside the mixin package so it loads as a normal class. */
+public final class ParticleIdMap extends AbstractInt2ObjectMap<ParticleProvider<?>> {
+    private final Map<ResourceLocation, ParticleProvider<?>> map;
+    public ParticleIdMap(Map<ResourceLocation, ParticleProvider<?>> map) { this.map = map; }
+
+    private static ResourceLocation key(int id) {
+        ParticleType<?> t = BuiltInRegistries.PARTICLE_TYPE.byId(id);
+        return t == null ? null : BuiltInRegistries.PARTICLE_TYPE.getKey(t);
+    }
+
+    @Override public ParticleProvider<?> get(int id) { ResourceLocation k = key(id); return k == null ? null : map.get(k); }
+    @Override public ParticleProvider<?> put(int id, ParticleProvider<?> v) {
+        ResourceLocation k = key(id);
+        if (k == null) throw new IllegalArgumentException("no particle type with raw id " + id);
+        return map.put(k, v);
+    }
+    @Override public ParticleProvider<?> remove(int id) { ResourceLocation k = key(id); return k == null ? null : map.remove(k); }
+    @Override public int size() { return map.size(); }
+    @Override public ObjectSet<Int2ObjectMap.Entry<ParticleProvider<?>>> int2ObjectEntrySet() {
+        ObjectSet<Int2ObjectMap.Entry<ParticleProvider<?>>> out = new ObjectArraySet<>();
+        map.forEach((k, v) -> out.add(new BasicEntry<>(BuiltInRegistries.PARTICLE_TYPE.getId(BuiltInRegistries.PARTICLE_TYPE.getValue(k)), v)));
+        return out;
+    }
+}

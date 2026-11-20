@@ -1,0 +1,75 @@
+package alloy.compat121support.sodium;
+
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMaps;
+import it.unimi.dsi.fastutil.longs.Long2ObjectOpenHashMap;
+import net.caffeinemc.mods.sodium.client.services.PlatformModelAccess;
+import net.caffeinemc.mods.sodium.client.services.SodiumModelData;
+import net.caffeinemc.mods.sodium.client.services.SodiumModelDataContainer;
+import net.caffeinemc.mods.sodium.client.world.LevelSlice;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.core.SectionPos;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.BlockAndTintGetter;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.state.BlockState;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelDataManager;
+
+import java.util.List;
+import java.util.Map;
+
+/**
+ * R1 + R2: Sodium's model service with Forge 52's model API (per-model render types, 5-argument getQuads with ModelData
+ * and render type, the section's ModelData from Forge's ModelDataManager, BakedModel.getModelData). Sodium takes the
+ * section's container in ClonedChunkSection on the main thread, so Forge's manager is never read on a mesher thread.
+ */
+public final class ForgeModelAccess121 implements PlatformModelAccess {
+    private static final SodiumModelDataContainer EMPTY_CONTAINER = new SodiumModelDataContainer(Long2ObjectMaps.emptyMap());
+
+    @Override
+    public Iterable<RenderType> getModelRenderTypes(BlockAndTintGetter level, BakedModel model, BlockState state, BlockPos pos, RandomSource random,
+                                                    SodiumModelData modelData) {
+        return SodiumForge121.renderTypes(model, state, random, ForgeModelData121.unwrap(modelData));
+    }
+
+    @Override
+    public List<BakedQuad> getQuads(BlockAndTintGetter level, BlockPos pos, BakedModel model, BlockState state, Direction face, RandomSource random,
+                                    RenderType renderType, SodiumModelData modelData) {
+        return model.getQuads(state, face, random, ForgeModelData121.unwrap(modelData), renderType);
+    }
+
+    @Override
+    public SodiumModelDataContainer getModelDataContainer(Level level, SectionPos sectionPos) {
+        try {
+            ModelDataManager mgr = level.getModelDataManager();
+            if (mgr == null) return EMPTY_CONTAINER;
+            Map<BlockPos, ModelData> at = mgr.getAt(sectionPos);
+            if (at == null || at.isEmpty()) return EMPTY_CONTAINER;
+            Long2ObjectMap<SodiumModelData> map = new Long2ObjectOpenHashMap<>(at.size());
+            for (Map.Entry<BlockPos, ModelData> e : at.entrySet()) {
+                if (e.getKey() == null || e.getValue() == null || e.getValue() == ModelData.EMPTY) continue;
+                map.put(e.getKey().asLong(), ForgeModelData121.wrap(e.getValue()));
+            }
+            return map.isEmpty() ? EMPTY_CONTAINER : new SodiumModelDataContainer(map);
+        } catch (RuntimeException e) {
+            SodiumForge121.warnOnce("modeldata", "Forge ModelData of a section could not be read; it meshes without model data", e);
+            return EMPTY_CONTAINER;
+        }
+    }
+
+    @Override
+    public SodiumModelData getModelData(LevelSlice slice, BakedModel model, BlockState state, BlockPos pos, SodiumModelData originalData) {
+        ModelData d = model.getModelData(slice, pos, state, ForgeModelData121.unwrap(originalData));
+        return ForgeModelData121.wrap(d);
+    }
+
+    @Override
+    public SodiumModelData getEmptyModelData() {
+        return ForgeModelData121.EMPTY;
+    }
+}

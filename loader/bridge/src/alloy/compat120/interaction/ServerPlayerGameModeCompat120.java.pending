@@ -1,0 +1,94 @@
+package alloy.compat120.interaction;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import com.llamalad7.mixinextras.sugar.Share;
+import com.llamalad7.mixinextras.sugar.ref.LocalRef;
+import net.fabricmc.fabric.api.event.player.PlayerBlockBreakEvents;
+import net.minecraft.core.BlockPos;
+import net.minecraft.server.level.ServerLevel;
+import net.minecraft.server.level.ServerPlayer;
+import net.minecraft.server.level.ServerPlayerGameMode;
+import net.minecraft.world.level.GameType;
+import net.minecraft.world.level.Level;
+import net.minecraft.world.level.block.GameMasterBlock;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import net.minecraft.world.level.block.state.BlockState;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): PlayerBlockBreakEvents BEFORE / CANCELED / AFTER on Forge's ServerPlayerGameMode.
+ *
+ * <p>Fabric's fabric-events-interaction-v0 ServerPlayerInteractionManagerMixin has two injectors that cannot apply:
+ * {@code breakBlock} (INVOKE Block.playerWillDestroy in destroyBlock, locals captured) and {@code onBlockBroken}
+ * (INVOKE Block.destroy in destroyBlock). Forge 47 replaced both calls: destroyBlock first calls
+ * {@code ForgeHooks.onBlockBreakEvent(Level, GameType, ServerPlayer, BlockPos)} (returns the XP, -1 = cancelled), and the
+ * block is removed in the new private {@code removeBlock(BlockPos, boolean)}, which calls
+ * {@code BlockState.onDestroyedByPlayer} and then {@code Block.destroy} only when the block was removed.
+ * Only those two injectors are stripped (prefit "fixed" list). The other three (HEAD of handleBlockBreakAction,
+ * useItemOn, useItem) still apply and stay Fabric's.
+ *
+ * <ul>
+ *   <li>BEFORE / CANCELED: wraps the onBlockBreakEvent call, so Fabric listeners run before Forge's BreakEvent (Fabric
+ *       first, like the 26.1 compat). BEFORE only fires when vanilla 1.20.1 would have reached playerWillDestroy: the
+ *       held item can attack the block, no GameMasterBlock without permission, and blockActionRestricted is false.
+ *       A deny returns -1, which is Forge's own "cancelled" value: destroyBlock returns false and destroyAndAck resends the
+ *       block to the client. Fabric itself only returns false; it does not send packets.</li>
+ *   <li>AFTER: after Block.destroy in removeBlock. The BlockEntity is read at the head of removeBlock (before
+ *       onDestroyedByPlayer removes it) into a MixinExtras @Share local, so nested breaks cannot overwrite it.</li>
+ * </ul>
+ *
+ * <p>Verified on forge-1.20.1-47.4.29 client classes (binpatched, sha1 6b7afd53 = install_profile PATCHED_SHA) after
+ * SRG to Mojang renaming: destroyBlock(BlockPos)Z calls ForgeHooks.onBlockBreakEvent once; removeBlock(BlockPos,Z)Z calls
+ * Block.destroy(LevelAccessor, BlockPos, BlockState) once; fields {@code protected final ServerPlayer player},
+ * {@code protected ServerLevel level}.
+ * Known difference (same as on 26.1): Forge runs ItemStack.mineBlock before removeBlock, so AFTER sees the tool
+ * already damaged.
+ */
+@Mixin(value = ServerPlayerGameMode.class, remap = false)
+public abstract class ServerPlayerGameModeCompat120 {
+    @Shadow(remap = false) @Final protected ServerPlayer player;
+    @Shadow(remap = false) protected ServerLevel level;
+
+    @WrapOperation(method = "destroyBlock(Lnet/minecraft/core/BlockPos;)Z", remap = false,
+            at = @At(value = "INVOKE", remap = false,
+                    target = "Lnet/minecraftforge/common/ForgeHooks;onBlockBreakEvent(Lnet/minecraft/world/level/Level;Lnet/minecraft/world/level/GameType;Lnet/minecraft/server/level/ServerPlayer;Lnet/minecraft/core/BlockPos;)I"))
+    private int alloy$fabricBeforeFirst(Level level, GameType gameType, ServerPlayer player, BlockPos pos, Operation<Integer> original) {
+        BlockState state = this.level.getBlockState(pos);
+        // the checks vanilla 1.20.1 destroyBlock makes before Block.playerWillDestroy (where Fabric fires BEFORE)
+        boolean vanillaAllows = player.getMainHandItem().getItem().canAttackBlock(state, level, pos, player)
+                && !(state.getBlock() instanceof GameMasterBlock && !player.canUseGameMasterBlocks())
+                && !player.blockActionRestricted(level, pos, gameType);
+        if (vanillaAllows) {
+            BlockEntity blockEntity = this.level.getBlockEntity(pos);
+            if (!PlayerBlockBreakEvents.BEFORE.invoker().beforeBlockBreak(this.level, player, pos, state, blockEntity)) {
+                PlayerBlockBreakEvents.CANCELED.invoker().onBlockBreakCanceled(this.level, player, pos, state, blockEntity);
+                return -1;
+            }
+        }
+        return original.call(level, gameType, player, pos);
+    }
+
+    /** BlockEntity before onDestroyedByPlayer removes it; local to this removeBlock call. */
+    @Inject(method = "removeBlock(Lnet/minecraft/core/BlockPos;Z)Z", at = @At("HEAD"), remap = false)
+    private void alloy$captureBlockEntity(BlockPos pos, boolean canHarvest, CallbackInfoReturnable<Boolean> cir,
+                                          @Share("breakBlockEntity") LocalRef<BlockEntity> breakBlockEntity) {
+        breakBlockEntity.set(this.level.getBlockEntity(pos));
+    }
+
+    /** PlayerBlockBreakEvents.AFTER, right after Block.destroy (Forge only calls it when the block was removed). */
+    @Inject(method = "removeBlock(Lnet/minecraft/core/BlockPos;Z)Z", remap = false,
+            at = @At(value = "INVOKE", remap = false, shift = At.Shift.AFTER,
+                    target = "Lnet/minecraft/world/level/block/Block;destroy(Lnet/minecraft/world/level/LevelAccessor;Lnet/minecraft/core/BlockPos;Lnet/minecraft/world/level/block/state/BlockState;)V"))
+    private void alloy$onBlockBroken(BlockPos pos, boolean canHarvest, CallbackInfoReturnable<Boolean> cir,
+                                     @Local(type = BlockState.class, ordinal = 0) BlockState state,
+                                     @Share("breakBlockEntity") LocalRef<BlockEntity> breakBlockEntity) {
+        PlayerBlockBreakEvents.AFTER.invoker().afterBlockBreak(this.level, this.player, pos, state, breakBlockEntity.get());
+    }
+}

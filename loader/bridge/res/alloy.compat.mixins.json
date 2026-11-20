@@ -1,0 +1,49 @@
+{
+ "required": true,
+ "minVersion": "0.8",
+ "package": "alloy.compat",
+ "plugin": "alloy.ConflictReport",
+ "compatibilityLevel": "JAVA_21",
+ "mixins": [
+  "entityevents.EntityEventsCompat",
+  "entityevents.PlayerDamageCompat",
+  "interaction.ServerPlayerGameModeCompat",
+  "interaction.ItemStackCompat",
+  "interaction.ForgeHooksUseOnCompat",
+  "conditions.ResourceConditionsCompat",
+  "conditions.ConditionalRegistryLoadCompat",
+  "attributes.AttributeBuilderCompat",
+  "itemchunk.EnchantmentHelperFabricMixin",
+  "itemchunk.RemainderBridgeMixins$ItemRemainder",
+  "itemchunk.RemainderBridgeMixins$ItemStackRemainder",
+  "registry.NamespacedWrapperLateRegister",
+  "registry.DataPackRegistriesFabricMirror",
+  "registry.PoiTypesRegisterTwiceMixin",
+  "registry.NamespacedWrapperFabricAliases",
+  "registry.NamespacedWrapperFabricAddEvent",
+  "registry.GameDataFreezeLock",
+  "worldgen.ChunkGeneratorFeaturesPerStep",
+  "registry.PoiTypeIdentityMixin",
+  "registry.ForgeRegistryEarlyDelegate",
+  "registry.RegistryBuilderIntrusiveAccess",
+  "biome.BiomeModificationFeaturesCompat",
+  "recipesync.IngredientOptionalCodecMixin",
+  "packs.PackFinderMutableCompat",
+  "wover.ChunkGeneratorWoverAccess",
+  "lithiumforge.LithiumHopperUpdateCompat"
+ ],
+ "server": [
+  "itemchunk.ServerLevelChunkLifecycleMixin",
+  "mpforge.ForgeClientNoFabricSyncMixin"
+ ],
+ "client": [
+  "loading.WorldOpenWaitsForForge",
+  "interaction.MultiPlayerGameModeCompat",
+  "itemchunk.ClientLevelChunkLifecycleMixin",
+  "input.KeyMappingAllAccess",
+  "input.OptionsKeyDedupe"
+ ],
+ "injectors": {
+  "defaultRequire": 1
+ }
+}

@@ -1,0 +1,24 @@
+{
+ "required": true,
+ "minVersion": "0.8",
+ "package": "alloy.mixin",
+ "plugin": "alloy.ConflictReport",
+ "compatibilityLevel": "JAVA_21",
+ "mixins": [
+  "CompatMixins$NoWrapStreams",
+  "CompatMixins$FabricOwnsRegisterChannel",
+  "CompatMixins$FabricRegisterFeedsForge",
+  "CompatMixins$FabricAnnouncesForgeChannels",
+  "CompatMixins$PlayerListLiveViews",
+  "CrashReportMixin"
+ ],
+ "injectors": {
+  "defaultRequire": 1
+ },
+ "client": [
+  "ScreenLogMixin",
+  "ReportScreenMixin",
+  "ModsButtonMixin",
+  "MinecraftTickMergeMixin"
+ ]
+}

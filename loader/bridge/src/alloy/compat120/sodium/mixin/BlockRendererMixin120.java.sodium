@@ -1,0 +1,64 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.BlockRenderContextExt120;
+import alloy.compat120support.sodium.SodiumForge120;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import me.jellysquid.mods.sodium.client.model.light.LightMode;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderContext;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockRenderer;
+import me.jellysquid.mods.sodium.client.render.chunk.terrain.material.Material;
+import net.minecraft.client.renderer.RenderType;
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.core.Direction;
+import net.minecraft.util.RandomSource;
+import net.minecraft.world.level.block.state.BlockState;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+
+import java.util.List;
+
+/**
+ * R1 material from the Forge render type, R2 the Forge 5-argument getQuads (ModelData + render type), R7 Forge's
+ * render-type aware ambient occlusion and position-aware light emission. Only active inside Alloy's per-type loop
+ * (render type != null); otherwise Sodium's own code runs unchanged.
+ */
+@Mixin(value = BlockRenderer.class, remap = false)
+public abstract class BlockRendererMixin120 {
+    @Shadow @Final private boolean useAmbientOcclusion;
+
+    @WrapOperation(method = "renderModel(Lme/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderContext;Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildBuffers;)V",
+            at = @At(value = "INVOKE", target = "Lme/jellysquid/mods/sodium/client/render/chunk/terrain/material/DefaultMaterials;forBlockState(Lnet/minecraft/world/level/block/state/BlockState;)Lme/jellysquid/mods/sodium/client/render/chunk/terrain/material/Material;"))
+    private Material alloy$forgeMaterial(BlockState state, Operation<Material> original, @Local(argsOnly = true) BlockRenderContext ctx) {
+        RenderType t = ((BlockRenderContextExt120) (Object) ctx).alloy$renderType();
+        if (t != null) {
+            Material m = SodiumForge120.material(t);
+            if (m != null) return m;
+        }
+        return original.call(state);
+    }
+
+    @WrapOperation(method = "getGeometry(Lme/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderContext;Lnet/minecraft/core/Direction;)Ljava/util/List;",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/resources/model/BakedModel;getQuads(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;Lnet/minecraft/util/RandomSource;)Ljava/util/List;"))
+    private List<BakedQuad> alloy$forgeQuads(BakedModel model, BlockState state, Direction face, RandomSource random,
+                                             Operation<List<BakedQuad>> original, @Local(argsOnly = true) BlockRenderContext ctx) {
+        BlockRenderContextExt120 ext = (BlockRenderContextExt120) (Object) ctx;
+        RenderType t = ext.alloy$renderType();
+        if (t == null) return original.call(model, state, face, random);
+        return model.getQuads(state, face, random, ext.alloy$modelData(), t);
+    }
+
+    @WrapOperation(method = "renderModel(Lme/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderContext;Lme/jellysquid/mods/sodium/client/render/chunk/compile/ChunkBuildBuffers;)V",
+            at = @At(value = "INVOKE", target = "Lme/jellysquid/mods/sodium/client/render/chunk/compile/pipeline/BlockRenderer;getLightingMode(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/client/resources/model/BakedModel;)Lme/jellysquid/mods/sodium/client/model/light/LightMode;"))
+    private LightMode alloy$forgeLightMode(BlockRenderer self, BlockState state, BakedModel model, Operation<LightMode> original,
+                                           @Local(argsOnly = true) BlockRenderContext ctx) {
+        RenderType t = ((BlockRenderContextExt120) (Object) ctx).alloy$renderType();
+        if (t == null) return original.call(self, state, model);
+        return this.useAmbientOcclusion && model.useAmbientOcclusion(state, t) && state.getLightEmission(ctx.world(), ctx.pos()) == 0
+                ? LightMode.SMOOTH : LightMode.FLAT;
+    }
+}

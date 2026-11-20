@@ -1,0 +1,197 @@
+{
+ "schema": 1,
+ "id": "1.21.8",
+ "status": "client in the installer since branch beta05 (fitted Fabric API, Mojang-named Forge 58)",
+ "source": "Forge 58.1.26 installer version.json / install_profile.json (maven.minecraftforge.net), maven.fabricmc.net",
+ "minecraft": "1.21.8",
+ "forge": {
+  "version": "58.1.26",
+  "full": "1.21.8-58.1.26",
+  "installer": "net.minecraftforge:forge:1.21.8-58.1.26:installer",
+  "fmlFamily": "fml56",
+  "mainClass": "net.minecraftforge.bootstrap.ForgeBootstrap",
+  "launchTarget": {
+   "client": "forge_client",
+   "server": "forge_server"
+  },
+  "launchArgs": [],
+  "launchHandler": {
+   "client": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Client",
+   "server": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Server"
+  },
+  "runtimeNames": "mojang (Forge renames the game with MOJMAPS --reverse at install)",
+  "coremods": "Forge 58.1.2+ has its own rewrites in forge-transformers (ModLauncher service \"forge\"), run at runtime by ModTransformationServices.installForge; mods' JS coremods (coremods 5.2.6 on nashorn 15.4) still run through Bridge.coreMods47",
+  "libraries": [
+   "net.minecraftforge:forge:1.21.8-58.1.26:universal",
+   "net.minecraftforge:forge:1.21.8-58.1.26:client",
+   "net.minecraftforge:JarJarFileSystems:0.3.26",
+   "com.google.guava:guava:33.3.1-jre",
+   "com.google.guava:failureaccess:1.0.2",
+   "net.minecraftforge:securemodules:2.2.24",
+   "net.minecraftforge:unsafe:0.9.2",
+   "org.ow2.asm:asm:9.9.1",
+   "org.ow2.asm:asm-tree:9.9.1",
+   "org.ow2.asm:asm-util:9.9.1",
+   "org.ow2.asm:asm-commons:9.9.1",
+   "org.ow2.asm:asm-analysis:9.9.1",
+   "de.oceanlabs.mcp:mcp_config:1.21.8-20250717.105350:srg2off",
+   "net.minecraftforge:JarJarFileSystems:0.3.26",
+   "com.google.guava:guava:33.3.1-jre",
+   "com.google.guava:failureaccess:1.0.2",
+   "net.minecraftforge:securemodules:2.2.24",
+   "net.minecraftforge:unsafe:0.9.2",
+   "org.ow2.asm:asm:9.9.1",
+   "org.ow2.asm:asm-tree:9.9.1",
+   "org.ow2.asm:asm-util:9.9.1",
+   "org.ow2.asm:asm-commons:9.9.1",
+   "org.ow2.asm:asm-analysis:9.9.1",
+   "net.minecraftforge:bootstrap:2.1.8",
+   "net.minecraftforge:bootstrap-api:2.1.8",
+   "net.minecraftforge:accesstransformers:8.2.2",
+   "net.minecraftforge:eventbus:7.0.1",
+   "org.jspecify:jspecify:1.0.0",
+   "net.minecraftforge:forgespi:7.1.5",
+   "net.minecraftforge:coremods:5.2.6",
+   "org.openjdk.nashorn:nashorn-core:15.4",
+   "net.minecraftforge:modlauncher:10.2.4",
+   "net.minecraftforge:mergetool-api:1.0",
+   "com.electronwill.night-config:toml:3.7.4",
+   "com.electronwill.night-config:core:3.7.4",
+   "org.apache.maven:maven-artifact:3.8.8",
+   "net.minecrell:terminalconsoleappender:1.2.0",
+   "org.jline:jline-reader:3.25.1",
+   "org.jline:jline-terminal:3.25.1",
+   "org.jline:jline-terminal-jna:3.25.1",
+   "org.spongepowered:mixin:0.8.7",
+   "net.minecraftforge:JarJarSelector:0.3.26",
+   "net.minecraftforge:JarJarMetadata:0.3.26",
+   "net.minecraftforge:fmlcore:1.21.8-58.1.26",
+   "net.minecraftforge:fmlloader:1.21.8-58.1.26",
+   "net.minecraftforge:fmlearlydisplay:1.21.8-58.1.26",
+   "net.minecraftforge:javafmllanguage:1.21.8-58.1.26",
+   "net.minecraftforge:lowcodelanguage:1.21.8-58.1.26",
+   "net.minecraftforge:mclanguage:1.21.8-58.1.26",
+   "net.minecraftforge:forge-transformers:1.21.8-58.1.26"
+  ],
+  "mcp": ""
+ },
+ "fabric": {
+  "loader": "0.20.1",
+  "api": "0.136.1+1.21.8",
+  "mixin": "0.17.5+mixin.0.8.7",
+  "mixinExtras": "0.5.5 (bundled in Fabric Loader 0.20.1)",
+  "runtimeNames": "intermediary (remap to Mojang ahead of time, as on 1.20.4)",
+  "apiPrefit": "fabric-api-0.136.1+1.21.8-alloy.jar",
+  "apiPrefitNote": "made by launch120.py mods + installer/fit120.py (installer/build120.py --mc 1.21.8), branded by make_prefit.py into installer/res/prefit"
+ },
+ "java": {
+  "run": 21,
+  "release": 21,
+  "asm": "9.10.1",
+  "note": "the bridge compiles with --release 21 (Forge's jars are Java 21 class files)",
+  "asmNote": "9.10.1 for Alloy's tools"
+ },
+ "mappings": {
+  "runtime": "mojang",
+  "forge": "mojang",
+  "fabric": "intermediary",
+  "mojang": "piston-meta 1.21.8 version json, downloads.client_mappings / server_mappings",
+  "intermediary": "net.fabricmc:intermediary:1.21.8:v2"
+ },
+ "versionStrings": {
+  "values": {
+   "minecraft": "1.21.8",
+   "forge": "58.1.26",
+   "fabricApi": "0.136.1",
+   "modlauncher": "10.2.4",
+   "asm": "9.10.1",
+   "mixinExtras": "0.5.5"
+  }
+ },
+ "tools": {
+  "note": "Parameters of launch120.py (ALLOY_MC=1.21.8). Zero-mod boot: launch120.py vanilla, game, fml, bridge, run --game-jar <work>/game-srg.jar --naming mcp",
+  "mc": "1.21.8",
+  "forge": "58.1.26",
+  "mcp": "",
+  "group": "net.minecraftforge",
+  "fmlFamily": "fml56",
+  "buildTags": [
+   "fml56",
+   "versioninfo",
+   "serviceprovider"
+  ],
+  "work": "run/families/1.21.8",
+  "fmlJars": [
+   "net/minecraftforge/fmlcore/1.21.8-58.1.26/fmlcore-1.21.8-58.1.26.jar",
+   "net/minecraftforge/fmlloader/1.21.8-58.1.26/fmlloader-1.21.8-58.1.26.jar",
+   "net/minecraftforge/forge/1.21.8-58.1.26/forge-1.21.8-58.1.26-universal.jar",
+   "net/minecraftforge/javafmllanguage/1.21.8-58.1.26/javafmllanguage-1.21.8-58.1.26.jar",
+   "net/minecraftforge/lowcodelanguage/1.21.8-58.1.26/lowcodelanguage-1.21.8-58.1.26.jar",
+   "net/minecraftforge/mclanguage/1.21.8-58.1.26/mclanguage-1.21.8-58.1.26.jar",
+   "net/minecraftforge/modlauncher/10.2.4/modlauncher-10.2.4.jar",
+   "net/minecraftforge/eventbus/7.0.1/eventbus-7.0.1.jar",
+   "net/minecraftforge/coremods/5.2.6/coremods-5.2.6.jar",
+   "net/minecraftforge/accesstransformers/8.2.2/accesstransformers-8.2.2.jar"
+  ],
+  "forgeSkip": [
+   "org.spongepowered:mixin",
+   "org.ow2.asm:",
+   "net.minecraftforge:bootstrap:",
+   "net.minecraftforge:bootstrap-api:",
+   "net.minecraftforge:forge:1.21.8-58.1.26:client"
+  ],
+  "extraForgeLibs": [],
+  "systemLibraries": [
+   "securemodules"
+  ],
+  "res": "res49",
+  "srcOverlays": [
+   "src56",
+   "src54",
+   "src52",
+   "src49",
+   "src47"
+  ],
+  "gameJars": [
+   "net/minecraftforge/forge/1.21.8-58.1.26/forge-1.21.8-58.1.26-client.jar",
+   "net/minecraft/client/1.21.8/client-1.21.8-official.jar"
+  ],
+  "release": 21,
+  "naming": "mcp",
+  "compatLists": {
+   "replaces": "compat_replaces.1.21.8.txt",
+   "strip": "prefit_strip.1.21.8.txt",
+   "aw": "aw_edits.1.21.8.txt",
+   "enable": "compat_enable.1.21.8.txt"
+  },
+  "mappingUrls": {
+   "intermediary": "https://maven.fabricmc.net/net/fabricmc/intermediary/1.21.8/intermediary-1.21.8-v2.jar"
+  },
+  "remapWork": "run/families/1.21.8/name-translator",
+  "srcShared": [
+   "world/WorldSafeScreens",
+   "worldsafe/WorldOpenMixin",
+   "api/impl/ApiNetwork",
+   "api/impl/ApiNetworkClient",
+   "mixin/CrashReportMixin"
+  ],
+  "net120": false,
+  "compatExtraMixins": {
+   "mixins": [
+    "recipe.RecipeManagerRegistriesCompat121",
+    "biome.BiomeModificationFeaturesCompat120",
+    "mpforge.ForgeClientNoFabricSync49",
+    "client52.FabricClientHooks52$Enchanting",
+    "biome.BiomeWeatherCompat120$InfoAccess",
+    "biome.BiomeWeatherCompat120$Weather"
+   ],
+   "client": [
+    "client52.FabricClientHooks52$Keys",
+    "client52.FabricClientHooks52$Mouse",
+    "client52.FabricClientHooks52$Drag",
+    "client52.FabricClientHooks52$ContinueBreaking"
+   ]
+  }
+ },
+ "tested": {}
+}

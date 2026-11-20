@@ -1,0 +1,29 @@
+package alloy.compat120.model;
+
+import net.minecraft.client.resources.model.BakedModel;
+import net.minecraft.client.resources.model.ModelManager;
+import net.minecraft.resources.ResourceLocation;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): ModelManager.getModel(ResourceLocation).
+ *
+ * <p>Forge adds this method and returns the missing model for an unknown id. fabric-model-loading-api-v1's
+ * BakedModelManagerMixin adds a method with the same name and descriptor (FabricBakedModelManager), which replaces Forge's and
+ * returns null. Forge mods expect a model (Sophisticated Backpacks crashed with "model is null" on resource reload). This
+ * runs after Fabric's mixin (priority 1100) and puts Forge's fallback back.
+ */
+@Mixin(value = ModelManager.class, remap = false, priority = 1100)
+public abstract class ModelManagerCompat120 {
+    @Shadow private BakedModel missingModel;
+
+    @Inject(method = "getModel(Lnet/minecraft/resources/ResourceLocation;)Lnet/minecraft/client/resources/model/BakedModel;",
+            at = @At("RETURN"), cancellable = true)
+    private void alloy$missingModelFallback(ResourceLocation id, CallbackInfoReturnable<BakedModel> cir) {
+        if (cir.getReturnValue() == null) cir.setReturnValue(missingModel);
+    }
+}

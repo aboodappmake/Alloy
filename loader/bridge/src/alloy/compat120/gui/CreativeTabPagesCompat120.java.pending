@@ -1,0 +1,82 @@
+package alloy.compat120.gui;
+
+import java.lang.reflect.Method;
+import java.util.List;
+import net.minecraft.core.registries.BuiltInRegistries;
+import net.minecraft.client.gui.screens.inventory.CreativeModeInventoryScreen;
+import net.minecraft.world.item.CreativeModeTab;
+import net.minecraftforge.client.gui.CreativeTabsScreenPage;
+import net.minecraftforge.common.CreativeModeTabRegistry;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Creative tabs on Forge 47/48/49/52 (1.20.1, 1.20.2, 1.20.4, 1.21.1): Forge is the only pager, Fabric's page mirrors it.
+ *
+ * <p>fabric-item-group-api keeps its own page number on every tab (starts at -1, getPage() throws "Item group has no page")
+ * and its creative screen mixin hides every tab whose Fabric page is not Fabric's current page and adds its own arrows.
+ * Fabric fills the page in its CreativeModeTabs.validate() hook (1.20.1, 1.20.2), whose only client caller is the
+ * registry-sync onStart hook Alloy strips, or in paginateGroups at buildAllTabContents TAIL (1.20.4+). Forge's screen
+ * pages the tabs itself (CreativeModeTabRegistry.getSortedCreativeModeTabs(), 10 per page, its own "<" ">" buttons). So on
+ * 1.20.1 any mod tab crashed the creative screen, and on 1.20.4+ two pagers fought (two sets of arrows, tabs hidden where
+ * the two disagree).
+ *
+ * <p>Fix (as Forgified Fabric API does on Forge 1.20.1): Fabric's screen injectors (init, setSelectedTab,
+ * renderTabTooltipIfHovered, isClickInTab, renderTabIcon) and, on 1.20.4+, ItemGroupsMixin#paginateGroups are stripped
+ * (compat_replaces.<mc>.txt). Here every tab's Fabric page is set to the index of Forge's page that shows it, each time the
+ * screen opens (Forge re-sorts on data reload), so Fabric API callers of getPage() still get a sane value. When some code
+ * selects a tab that is on another Forge page, Forge's page follows. validate() is never called.
+ */
+@Mixin(value = CreativeModeInventoryScreen.class, remap = false)
+public abstract class CreativeTabPagesCompat120 {
+    @Shadow @Final private List<CreativeTabsScreenPage> pages;
+    @Shadow private CreativeTabsScreenPage currentPage;
+
+    @Unique private static Method alloy$setPage;
+    @Unique private static boolean alloy$looked;
+
+    @Inject(method = "init", at = @At("HEAD"))
+    private void alloy$fabricPages(CallbackInfo ci) {
+        for (CreativeModeTab tab : BuiltInRegistries.CREATIVE_MODE_TAB) alloy$page(tab, 0);   // nobody stays at -1
+        List<CreativeModeTab> sorted = CreativeModeTabRegistry.getSortedCreativeModeTabs();
+        for (int i = 0; i < sorted.size(); i++) alloy$page(sorted.get(i), i / 10);           // Forge's split in init()
+    }
+
+    @Inject(method = "selectTab", at = @At("TAIL"))
+    private void alloy$followTab(CreativeModeTab tab, CallbackInfo ci) {
+        if (tab == null || currentPage == null || currentPage.getVisibleTabs().contains(tab)) return;
+        for (CreativeTabsScreenPage p : pages) {
+            if (p.getVisibleTabs().contains(tab)) {
+                currentPage = p;
+                return;
+            }
+        }
+    }
+
+    /** FabricItemGroup#setPage(int) on 1.20.x, FabricItemGroupImpl#fabric_setPage(int) on 1.21.x (both added to the tab). */
+    @Unique
+    private static void alloy$page(CreativeModeTab tab, int page) {
+        if (!alloy$looked) {
+            alloy$looked = true;
+            for (String n : new String[] {"setPage", "fabric_setPage"}) {
+                try {
+                    alloy$setPage = CreativeModeTab.class.getMethod(n, int.class);
+                    break;
+                } catch (NoSuchMethodException e) {
+                    // next name
+                }
+            }
+        }
+        if (alloy$setPage == null) return;   // no fabric-item-group-api: nothing reads the page
+        try {
+            alloy$setPage.invoke(tab, page);
+        } catch (ReflectiveOperationException e) {
+            throw new IllegalStateException("Alloy: could not set the Fabric page of a creative tab", e);
+        }
+    }
+}

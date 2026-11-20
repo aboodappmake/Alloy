@@ -1,0 +1,38 @@
+package alloy.compat120.gui.hooks;
+
+import alloy.compat120support.gui.AppleSkinHud120;
+import alloy.compat120support.gui.GuiHooks120;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraftforge.client.gui.overlay.ForgeGui;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * ForgeGui.render never calls Gui.render, so Fabric mods' HUD hooks on Gui.render run from here instead (see
+ * alloy.compat120support.gui.GuiHooksPlugin120). Fabric AppleSkin hooks Gui.renderPlayerHealth, which Forge does not call either; its
+ * food overlay runs around ForgeGui.renderFood (alloy.compat120support.gui.AppleSkinHud120).
+ */
+@Mixin(value = ForgeGui.class, remap = false)
+public abstract class ForgeGuiHooks120 {
+    @Inject(method = "render", at = @At("HEAD"))
+    private void alloy$fabricHead(GuiGraphics graphics, float partialTick, CallbackInfo ci) {
+        ((GuiHooks120) (Object) this).alloy$fabricRenderHead(graphics, partialTick);
+    }
+
+    @Inject(method = "render", at = @At("RETURN"))
+    private void alloy$fabricTail(GuiGraphics graphics, float partialTick, CallbackInfo ci) {
+        ((GuiHooks120) (Object) this).alloy$fabricRenderTail(graphics, partialTick);
+    }
+
+    @Inject(method = "renderFood", at = @At("HEAD"))
+    private void alloy$appleSkinPre(int width, int height, GuiGraphics graphics, CallbackInfo ci) {
+        AppleSkinHud120.pre(graphics);
+    }
+
+    @Inject(method = "renderFood", at = @At("RETURN"))
+    private void alloy$appleSkinPost(int width, int height, GuiGraphics graphics, CallbackInfo ci) {
+        AppleSkinHud120.post(graphics);
+    }
+}

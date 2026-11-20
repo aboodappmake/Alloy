@@ -1,0 +1,39 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.SnapshotModelDataManager120;
+import alloy.compat120support.sodium.WorldSliceExt120;
+import me.jellysquid.mods.sodium.client.world.WorldSlice;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraft.core.BlockPos;
+import net.minecraftforge.client.model.data.ModelData;
+import net.minecraftforge.client.model.data.ModelDataManager;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+
+import java.util.Collections;
+import java.util.Map;
+
+/**
+ * R11: Forge's IForgeBlockGetter.getModelDataManager() on Sodium's WorldSlice (the default returns null, and mods'
+ * getModelData(level, pos, ...) read neighbour data through it). Answers from the section's main-thread snapshot.
+ */
+@Mixin(value = WorldSlice.class, remap = false)
+public abstract class WorldSliceMixin120 implements WorldSliceExt120 {
+    @Shadow @Final private ClientLevel world;
+    @Unique private Map<BlockPos, ModelData> alloy$modelData = Collections.emptyMap();
+    @Unique private SnapshotModelDataManager120 alloy$manager;
+
+    @Override public void alloy$setModelData(Map<BlockPos, ModelData> snapshot) {
+        this.alloy$modelData = snapshot == null ? Collections.emptyMap() : snapshot;
+    }
+    @Override public Map<BlockPos, ModelData> alloy$modelData() { return this.alloy$modelData; }
+
+    /** Overrides IForgeBlockGetter's default for WorldSlice. */
+    public ModelDataManager getModelDataManager() {
+        SnapshotModelDataManager120 m = this.alloy$manager;
+        if (m == null) this.alloy$manager = m = new SnapshotModelDataManager120(this.world, this);
+        return m;
+    }
+}

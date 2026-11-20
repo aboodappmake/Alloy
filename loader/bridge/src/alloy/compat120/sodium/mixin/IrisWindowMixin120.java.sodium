@@ -1,0 +1,29 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.IrisShader120;
+import com.mojang.blaze3d.platform.DisplayData;
+import com.mojang.blaze3d.platform.ScreenManager;
+import com.mojang.blaze3d.platform.Window;
+import com.mojang.blaze3d.platform.WindowEventHandler;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Iris MixinWindow#iris$enableDebugContext on Forge 47: Forge's Window constructor hands window creation to
+ * ImmediateWindowHandler.setupMinecraftWindow, so there is no glfwCreateWindow call for Iris to hook. Alloy starts FML without
+ * Forge's early window, so that handler creates the window right away with the current hints: setting Iris's two debug
+ * hints just before it has the same effect. Only when Iris's debug option (iris.properties enableDebugOptions) is on.
+ */
+@Mixin(value = Window.class, remap = false)
+public abstract class IrisWindowMixin120 {
+    @Inject(method = "<init>(Lcom/mojang/blaze3d/platform/WindowEventHandler;Lcom/mojang/blaze3d/platform/ScreenManager;"
+            + "Lcom/mojang/blaze3d/platform/DisplayData;Ljava/lang/String;Ljava/lang/String;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraftforge/fml/loading/ImmediateWindowHandler;setupMinecraftWindow("
+                    + "Ljava/util/function/IntSupplier;Ljava/util/function/IntSupplier;Ljava/util/function/Supplier;Ljava/util/function/LongSupplier;)J"))
+    private void alloy$irisDebugContext(WindowEventHandler handler, ScreenManager screens, DisplayData display, String mode, String title,
+                                        CallbackInfo ci) {
+        IrisShader120.debugContextHints();
+    }
+}

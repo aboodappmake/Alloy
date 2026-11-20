@@ -1,0 +1,37 @@
+package alloy.compat120.loot;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.core.Holder;
+import net.minecraft.core.RegistrationInfo;
+import net.minecraft.core.WritableRegistry;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.ReloadableServerRegistries;
+import net.minecraft.world.level.storage.loot.LootTable;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * 1.21.4 and 1.21.8 copy (bridge/src54 overlay): the registering lambda is lambda$scheduleRegistryLoad$2 on Forge 54 and 58
+ * (lambda$scheduleElementParse$2 on Forge 52), same WritableRegistry.register call. The rest is the 1.21.1 text.
+ *
+ * 1.21.1 (Forge 52) version of compat120/loot/LootIdCompat120. Loot tables are a reloadable registry now
+ * (ReloadableServerRegistries); Forge sets each table's id in LootDataType.deserialize. Fabric loot v3
+ * (ReloadableRegistriesMixin#modifyLootTable) replaces a table that a REPLACE or MODIFY listener changed with one rebuilt from a
+ * LootTable.Builder, which has no id, so Forge's global loot modifiers stopped matching {@code forge:loot_table_id} for every
+ * table a Fabric mod touched.
+ *
+ * <p>Fix: when a loot table without an id is registered in the parse lambda, it gets the id of the key it is registered under.
+ * Tables that kept Forge's id are left alone (setLootTableId refuses a second id).
+ */
+@Mixin(value = ReloadableServerRegistries.class, remap = false)
+public abstract class LootIdCompat120 {
+    @WrapOperation(method = "lambda$scheduleRegistryLoad$2", remap = false,
+            at = @At(value = "INVOKE", remap = false,
+                    target = "Lnet/minecraft/core/WritableRegistry;register(Lnet/minecraft/resources/ResourceKey;Ljava/lang/Object;Lnet/minecraft/core/RegistrationInfo;)Lnet/minecraft/core/Holder$Reference;"))
+    private static Holder.Reference<?> alloy$keepLootTableId(WritableRegistry<Object> registry, ResourceKey<Object> key, Object value,
+                                                            RegistrationInfo info, Operation<Holder.Reference<?>> original) {
+        if (value instanceof LootTable table && table.getLootTableId() == null) table.setLootTableId(key.location());
+        return original.call(registry, key, value, info);
+    }
+}

@@ -1,0 +1,30 @@
+package alloy.compat121.sodium.mixin;
+
+import alloy.compat121support.sodium.SnapshotModelDataManager121;
+import net.caffeinemc.mods.sodium.client.world.LevelSlice;
+import net.minecraft.client.multiplayer.ClientLevel;
+import net.minecraftforge.client.model.data.ModelDataManager;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.Unique;
+
+/**
+ * R11 on Sodium's LevelSlice (Minecraft 1.21.8 and 1.21.11: Forge 58 and 61 have no 4-float getShade) (what Sodium hands models as the level while meshing):
+ * <ul>
+ * <li>Forge's IForgeBlockGetter.getModelDataManager() (the default returns null; mods read neighbour data through it),
+ * answered from the slice's ModelData copy.</li>
+ * </ul>
+ */
+@Mixin(value = LevelSlice.class, remap = false)
+public abstract class LevelSliceMixin121 {
+    @Shadow @Final private ClientLevel level;
+    @Unique private SnapshotModelDataManager121 alloy$manager;
+
+    /** Overrides IForgeBlockGetter's default for LevelSlice. */
+    public ModelDataManager getModelDataManager() {
+        SnapshotModelDataManager121 m = this.alloy$manager;
+        if (m == null) this.alloy$manager = m = new SnapshotModelDataManager121(this.level, (LevelSlice) (Object) this);
+        return m;
+    }
+}

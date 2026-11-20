@@ -1,0 +1,26 @@
+# Fabric API mixins that an Alloy compat mixin (bridge/src/alloy/compat/...) fully re-implements.
+# adapt_fabric.py always disables these, so their events never fire twice.
+fabric-events-interaction-v0.mixins.json:ServerPlayerGameModeMixin
+fabric-events-interaction-v0.mixins.json:ItemStackMixin
+fabric-item-api-v1.mixins.json:CraftingRecipeMixin
+fabric-item-api-v1.mixins.json:AbstractFurnaceBlockEntityMixin
+fabric-item-api-v1.mixins.json:BrewingStandBlockEntityMixin
+fabric-item-api-v1.mixins.json:EnchantmentHelperMixin
+fabric-lifecycle-events-v1.mixins.json:server.LevelChunkMixin
+fabric-lifecycle-events-v1.client.mixins.json:LevelChunkMixin
+fabric-object-builder-v1.mixins.json:AttributeSupplierBuilderAccessor
+fabric-resource-conditions-api-v1.mixins.json:SimpleJsonResourceReloadListenerMixin
+fabric-loot-api-v3.mixins.json:ResourceManagerRegistryLoadTaskMixin
+fabric-advancement-api-v1.mixins.json:ResourceManagerRegistryLoadTaskMixin
+# per-handler: strip only this injector, keep the rest of the mixin
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#afterDamage
+# accessor entries: mixin@name+desc=invoker:method turns that @Accessor into an @Invoker of a method an Alloy compat mixin
+# adds (the mixin stays an accessor mixin, so the mod's casts keep working; a mixin left without any accessor would be a
+# plain interface mixin, which Mixin refuses on a class). mixin@name+desc=field retargets the accessor to another field.
+wover.biome.mixins.common.json:ChunkGeneratorAccessor@wover_setFeaturesPerStep(Ljava/util/function/Supplier;)V=invoker:alloy$woverSetFeaturesPerStep
+wover.biome.mixins.common.json:ChunkGeneratorAccessor@wover_getFeaturesPerStep()Ljava/util/function/Supplier;=invoker:alloy$woverGetFeaturesPerStep
+#alloy: feature-off
+# reg05 offline check, 26.3: Architectury 22.0.6 (Fabric) MixinItemEntity @ModifyConstant 6000 (item despawn age) in
+# ItemEntity; Forge 66 reads its lifespan field there instead (critical, ItemEntity cannot load). Lost: Architectury's
+# Fabric-side item lifespan event; Forge's ItemExpireEvent and lifespan field stay.
+architectury.mixins.json:MixinItemEntity#architectury$modifyLifespan

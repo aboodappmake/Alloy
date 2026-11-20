@@ -1,0 +1,60 @@
+# Fabric API mixins that an alloy.compat120 mixin fully re-implements on 1.21.1.
+# Forge's patch renames the captured locals of the interact handler (ServerGamePacketListenerImpl$1): val$target -> val$entity
+fabric-events-interaction-v0.mixins.json:ServerPlayNetworkHandlerMixin@field:val$target=val$entity
+# Creative tabs: Forge is the only pager. Fabric's creative screen filters and arrows are stripped and gui.CreativeTabPagesCompat120
+# sets every tab's Fabric page to Forge's page index (1.20.1/1.20.2: nothing else fills it, the screen crashed "Item group has no page")
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#init
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#setSelectedTab
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#renderTabTooltipIfHovered
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#isClickInTab
+fabric-item-group-api-v1.client.mixins.json:CreativeInventoryScreenMixin#renderTabIcon
+# Fabric's own page numbers (by id) at buildAllTabContents TAIL: gui.CreativeTabPagesCompat120 is the only writer
+fabric-item-group-api-v1.mixins.json:ItemGroupsMixin#paginateGroups
+# accessors whose field Forge changed: keep the accessor mixin (Fabric's particle registry casts ParticleEngine to it, and a class
+# in a mixin package never loads as a plain interface: the first Fabric particle factory crashed) and point the @Accessor at the
+# raw-id view particle.ParticleEngineCompat120 adds (Forge 52 keys providers by ResourceLocation, as Forge 47)
+fabric-particles-v1.client.mixins.json:ParticleManagerAccessor@getFactories()Lit/unimi/dsi/fastutil/ints/Int2ObjectMap;=alloy$providersById
+# PlayerBlockBreakEvents BEFORE, AFTER, CANCELED: interaction.ServerPlayerGameModeCompat120 on Forge's destroyBlock/removeBlock
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#breakBlock
+fabric-events-interaction-v0.mixins.json:ServerPlayerInteractionManagerMixin#onBlockBroken
+# block entity load and unload events: itemchunk.LevelChunkLifecycleCompat120 (client and server) re-implements both WorldChunkMixins
+fabric-lifecycle-events-v1.client.mixins.json:WorldChunkMixin
+fabric-lifecycle-events-v1.mixins.json:server.WorldChunkMixin
+# stack aware recipe remainders: item.ItemCompat120$ItemRemainder feeds Forge's IForgeItem methods; Fabric's halves would only
+# write a vanilla style remainder over Forge's
+fabric-item-api-v1.mixins.json:RecipeMixin
+fabric-item-api-v1.mixins.json:BrewingStandBlockEntityMixin
+fabric-item-api-v1.mixins.json:AbstractFurnaceBlockEntityMixin
+# EntitySleepEvents: entityevents.SleepCompat120 (src49 copy). modifyBedForOccupiedState still applies on 1.21.1 (retargeted to
+# lambda$stopSleeping$11), so it goes too, or ALLOW_BED fires twice on wake up
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onIsSleepingInBed
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#onGetSleepingDirection
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyBedForOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#setOccupiedState
+fabric-entity-events-v1.mixins.json:LivingEntityMixin#modifyWakeUpPosition
+fabric-entity-events-v1.mixins.json:PlayerEntityMixin#redirectDaySleepCheck
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#redirectDaySleepCheck
+# Fabric dynamic registries: registry.WorldLoaderCompat120 hands Forge's full list (Fabric's copy misses forge:biome_modifier and
+# the Forge mods' data pack registries, which Forge 52 adds later)
+fabric-registry-sync-v0.mixins.json:SaveLoadingMixin
+# Forge 52 moved these call sites into its own classes; client52.FabricClientHooks52 fires the Fabric events there:
+# screen keyboard, mouse, render and tick events
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onRenderScreen
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyPressedEvent
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyReleasedEvent
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyPressedEvent
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyReleasedEvent
+fabric-screen-api-v1.mixins.json:MouseMixin#afterMouseClickedEvent
+fabric-screen-api-v1.mixins.json:MouseMixin#afterMouseReleasedEvent
+fabric-screen-api-v1.mixins.json:MouseMixin#beforeMouseClickedEvent
+fabric-screen-api-v1.mixins.json:MouseMixin#beforeMouseReleasedEvent
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#afterScreenTick
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#beforeScreenTick
+# enchanting table: ALLOW_ENCHANTING and FabricItem.canBeEnchantedWith around Forge's canApplyAtEnchantingTable
+fabric-item-api-v1.mixins.json:EnchantmentHelperMixin#useCustomEnchantingChecks
+# FabricItem.allowContinuingBlockBreaking around Forge's shouldCauseBlockBreakReset
+fabric-item-api-v1.client.mixins.json:ClientPlayerInteractionManagerMixin#fabricItemContinueBlockBreakingInject
+# client half of UseEntityCallback before interactAt in Minecraft.startUseItem
+fabric-events-interaction-v0.client.mixins.json:MinecraftClientMixin#injectUseEntityCallback
+# a null sleeping direction refuses the bed: entityevents.SleepDirectionCheck120 (src52) after Forge's direction lookup
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#onTrySleepDirectionCheck

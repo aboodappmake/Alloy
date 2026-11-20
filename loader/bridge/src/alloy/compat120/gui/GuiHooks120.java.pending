@@ -1,0 +1,14 @@
+package alloy.compat120support.gui;
+
+import net.minecraft.client.gui.GuiGraphics;
+
+/**
+ * Added to Gui by alloy.compat120.gui.hooks.GuiRenderHooks120. ForgeGui.render calls these at its start and end;
+ * GuiHooksPlugin120 fills them with the calls that Fabric mods' HEAD and TAIL injectors put into Gui.render.
+ * (Kept outside the alloy.compat120 mixin package so plain code can load it.)
+ */
+public interface GuiHooks120 {
+    void alloy$fabricRenderHead(GuiGraphics graphics, float partialTick);
+
+    void alloy$fabricRenderTail(GuiGraphics graphics, float partialTick);
+}

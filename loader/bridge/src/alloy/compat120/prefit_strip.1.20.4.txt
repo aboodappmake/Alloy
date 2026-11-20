@@ -1,0 +1,143 @@
+# Fabric API 0.97.3+1.20.4 on Forge 49.2.13: injectors that cannot apply. Started from prefit_strip.1.20.1.txt minus the
+# entries that no longer exist in 0.97.3; every entry is rechecked by the 1.20.4 boots
+# with -Dalloy.conflicts=true. Same format as compat_replaces.txt (config:mixin#handler).
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#canUseAsFuelRedirect
+fabric-content-registries-v0.mixins.json:AbstractFurnaceBlockEntityMixin#getFuelTimeRedirect
+fabric-data-generation-api-v1.mixins.json:TagProviderMixin#addReplaced
+fabric-dimensions-v1.mixins.json:EntityMixin#stopEndSpecificBehavior
+fabric-dimensions-v1.mixins.json:RegistryCodecsMixin#modifyCodecLocalVariable
+fabric-model-loading-api-v1.mixins.json:ModelLoaderBakerImplMixin#invokeModifyBeforeBake
+fabric-model-loading-api-v1.mixins.json:ModelLoaderBakerImplMixin#invokeModifyAfterBake
+fabric-renderer-api-v1.mixins.json:client.OverlayVertexConsumerMixin#redirectGetFacing
+fabric-renderer-indigo.mixins.json:ChunkBuilderBuiltChunkRebuildTaskMixin#hookChunkBuildTessellate
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#getOverlayBlock
+fabric-rendering-fluids-v1.mixins.json:FluidRendererMixin#modSideSpriteForOverlay
+#alloy: restored by gui/AfterTranslucentCompat120
+fabric-rendering-v1.mixins.json:WorldRendererMixin#onRenderParticles
+#alloy: end-restored
+fabric-resource-conditions-api-v1.mixins.json:LootManagerMixin#applyResourceConditions
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyPressedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyPressedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#beforeKeyReleasedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:KeyboardMixin#afterKeyReleasedEvent
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#beforeScreenTick
+#alloy: end-restored
+#alloy: restored by gui/ScreenEventsCompat120
+fabric-screen-api-v1.mixins.json:MinecraftClientMixin#afterScreenTick
+#alloy: end-restored
+fabric-sound-api-v1.mixins.json:SoundSystemMixin#getStream
+fabric-transfer-api-v1.mixins.json:HopperBlockEntityMixin#hookInsert
+# Found by the first boot with -Dalloy.conflicts=true (2026-11-12, port120-mods), not in the static check:
+# locals capture that no longer matches Forge's method (critical injection failure)
+#alloy: restored by interaction/UseEntityClientCompat120
+fabric-events-interaction-v0.client.mixins.json:MinecraftClientMixin#injectUseEntityCallback
+#alloy: end-restored
+# MODIFY_SLEEPING_DIRECTION null = cannot sleep: entityevents.SleepCompat120$ServerPlayerSleepTime (src49 overlay)
+#alloy: restored by entityevents/SleepCompat120
+fabric-entity-events-v1.mixins.json:ServerPlayerEntityMixin#onTrySleepDirectionCheck
+#alloy: end-restored
+fabric-transfer-api-v1.mixins.json:HopperBlockEntityMixin#hookExtract
+fabric-particles-v1.client.mixins.json:BlockDustParticleMixin#removeUntintableParticles
+# whole mixins: Forge 47/49 changed the shadowed field (BlockColors/ItemColors/ParticleEngine use maps keyed by registry
+# entries, LootTable.pools is a List), Forge's ShaderInstance constructor delegates to this(), and Forge's TagFile already
+# has remove() (Forge reads "remove" in tag files itself)
+fabric-registry-sync-v0.client.mixins.json:BlockColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ItemColorsMixin
+fabric-registry-sync-v0.client.mixins.json:ParticleManagerMixin
+fabric-rendering-v1.mixins.json:shader.ShaderProgramMixin
+# ColorProviderRegistry: Forge 47/49 BlockColors/ItemColors keep providers in maps, not IdMapper. These two mixins were also the only
+# callers of ColorProviderRegistryImpl.initialize; color/BlockColorsCompat120 and ItemColorsCompat120 do both jobs on Forge's maps
+#alloy: restored by color/BlockColorsCompat120
+fabric-rendering-v1.mixins.json:BlockColorsMixin
+#alloy: end-restored
+#alloy: restored by color/ItemColorsCompat120
+fabric-rendering-v1.mixins.json:ItemColorsMixin
+#alloy: end-restored
+# Mod Menu 7.2.2: changes the version text in TitleScreen.render; Forge 47/49 draws that text through BrandingControl
+mixins.modmenu.json:MixinTitleScreen#onRender
+# Forge 47/49 patches ShaderInstance$1.applyImport for namespaced imports itself (ForgeHooksClient.getShaderImportLocation)
+fabric-rendering-v1.mixins.json:shader.ShaderProgramImportProcessorMixin
+# Fabric's client start hook calls BuiltInRegistries.bootStrap() again, which freezes every built-in registry while Forge
+# mods are still loading (common setup registers loot functions, structure pieces, ... into them). Forge freezes them itself
+# at FREEZE_DATA. Lost: Fabric's late BlockInitTracker pass and its CreativeModeTabs.validate().
+fabric-registry-sync-v0.client.mixins.json:MinecraftClientMixin#onStart
+# Found by the first 1.20.4 boot with -Dalloy.conflicts=true (2026-11-12).
+# Stack aware food (new in 0.97): Forge 49 patches every food read to IForgeItem.getFoodProperties(stack, entity), so Fabric's
+# Item.getFoodComponent redirects find no call. Lost: FabricItem.getFoodComponent(ItemStack); Forge's stack aware food works.
+fabric-item-api-v1.mixins.json:ItemMixin#getStackAwareFoodComponent
+fabric-item-api-v1.mixins.json:ItemMixin#isStackAwareFood
+fabric-item-api-v1.mixins.json:LivingEntityMixin#getStackAwareFoodComponent
+fabric-item-api-v1.mixins.json:LivingEntityMixin#isStackAwareFood
+fabric-item-api-v1.mixins.json:ItemStackMixin#isStackAwareFood
+fabric-item-api-v1.mixins.json:BlockItemMixin
+fabric-item-api-v1.mixins.json:CatEntityMixin
+fabric-item-api-v1.mixins.json:FoxEntityMixin
+fabric-item-api-v1.mixins.json:WolfEntityMixin
+fabric-item-api-v1.mixins.json:HungerManagerMixin
+# Enchanting: Forge 49 replaced the category check in getAvailableEnchantmentResults with canApplyAtEnchantingTable and
+# rewrote runIterationOnItem (stack aware enchantments). Lost: Fabric's custom enchanting checks and intrinsic enchantments
+# in EnchantmentHelper (Forge's IForgeItem hooks still work).
+fabric-item-api-v1.mixins.json:EnchantmentHelperMixin
+# Forge's shear patch (IForgeShearable) no longer calls the vanilla conversion the ModifyArg targets
+fabric-entity-events-v1.mixins.json:MooshroomEntityMixin#afterMooshroomConversion
+# Forge 49 patches VillagerTrades$EmeraldsForVillagerTypeItem (registry stream and locals differ)
+fabric-object-builder-v1.mixins.json:TradeOffersTypeAwareBuyForOneEmeraldFactoryMixin
+# still present in 0.97.3 (handler of the same name), Forge's data fix differs as on 1.20.1
+fabric-registry-sync-v0.mixins.json:StructuresToConfiguredStructuresFixMixin#findUpdatedStructureType
+# Forge wraps the screen render call in GameRenderer.render with ForgeHooksClient.drawScreen. Lost: ScreenEvents
+# beforeRender/afterRender (Forge's ScreenEvent.Render still fires).
+fabric-screen-api-v1.mixins.json:GameRendererMixin#onRenderScreen
+# Sodium 0.5.8+mc1.20.4 on Forge 49 (conflict audit 2026-11-13): the same four as Sodium 0.5.13 on Forge 47. Forge changed the
+# window hints, the sprite mipmap call and the 3-argument getQuads of multipart/weighted models.
+sodium.mixins.json:core.WindowMixin#setAdditionalWindowHints
+sodium.mixins.json:features.textures.mipmaps.SpriteContentsMixin#sodium$beforeGenerateMipLevels
+sodium.mixins.json:features.model.MultipartBakedModelMixin
+sodium.mixins.json:features.model.WeightedBakedModelMixin
+# Sodium's driver workaround around glfwCreateWindow (require = 0 in Sodium, but it never applies: Forge 49 creates the
+# window through its early display code path). Stripped so the audit is clean; the workaround only matters on old Intel drivers.
+sodium.mixins.json:workarounds.context_creation.WindowMixin#wrapGlfwCreateWindow
+# Iris 1.7.6 (static check, rendering120). Forge 47 changed these targets.
+# Window: Forge 47 creates the window in its early loading screen, so the constructor has no glfwCreateWindow call. Lost: the
+# OpenGL debug context from Iris's debug option.
+mixins.iris.json:MixinWindow#iris$enableDebugContext
+# Particle phases: Forge 47 renders particles through its own 6-argument ParticleEngine.render (with a Frustum), so the
+# 5-argument one Iris hooks is never used by the level renderer. All four parts of the phase split go together, or particles
+# would render twice. Lost: shader packs that ask for particles before or after translucent terrain get them at the vanilla
+# spot.
+mixins.iris.fantastic.json:MixinLevelRenderer#iris$renderTranslucentAfterDeferred
+mixins.iris.fantastic.json:MixinLevelRenderer#iris$renderOpaqueParticles
+mixins.iris.fantastic.json:MixinParticleEngine#iris$changeParticleShader
+mixins.iris.fantastic.json:MixinParticleEngine#iris$selectParticlesToRender
+# Vanilla chunk rebuild task (Forge 47 calls a different renderBatched). Unused while Sodium meshes the chunks.
+mixins.iris.vertexformat.json:block_rendering.MixinChunkRebuildTask#iris$onRenderBlock
+mixins.iris.vertexformat.json:block_rendering.MixinChunkRebuildTask#iris$finishRenderingBlock
+# Armor: Forge 47's renderArmorPiece has an extra Item local before the ArmorItem, so Iris's locals capture fails
+# (found at boot, not by the static check). Lost: shader packs see armor with the entity's id instead of the armor's.
+mixins.iris.json:entity_render_context.MixinHumanoidArmorLayer#changeId
+# (the Iris block above is carried over from 1.20.1 / Iris 1.7.6; rechecked on Iris 1.7.2+1.20.4 with the conflict audit)
+# reg05 offline check: Architectury (Fabric) client.MixinEffectInstance#mojangPls redirects the ResourceLocation that
+# EffectInstance's constructor builds, so shader names with a mod namespace load. Forge 49 does the same itself
+# (ResourceLocation.tryParse, then the namespace is kept), so the redirect finds no target and the critical injection
+# failure stopped EffectInstance from loading. Nothing is lost: Forge's code loads modded effect shaders.
+architectury.mixins.json:client.MixinEffectInstance#mojangPls
+# reg05 offline check, same as 1.20.1 (Forge 49 has the same shapes, javap):
+# Puzzles Lib 20.4.53 (Fabric): STORE of a BlockState local in ScreenEffectRenderer.renderScreenEffect; Forge keeps a Pair
+# from getOverlayBlock there. Lost: Puzzles Lib's Fabric-side overlay block hook (Forge's RenderBlockScreenEffectEvent runs).
+puzzleslib.fabric.mixins.json:client.ScreenEffectRendererFabricMixin#renderScreenEffect
+# Balm 9.0.9 (Fabric): @ModifyVariable at the farmland is() in CropBlock.getGrowthSpeed; Forge uses canSustainPlant.
+# Lost: Balm's Fabric crop growth speed hook (Forge's own growth hooks stay).
+balm.fabric.mixins.json:FabricCropBlockMixin#getGrowthSpeed
+# reg05 dry boots: Architectury (Fabric) MixinCatSpawner#checkCatSpawn (an inject that captures the Cat local in
+# CatSpawner.spawnCat) fails its injection check on this Forge (Scanned 0 targets; on 1.21.1 javap still shows the
+# Cat.finalizeSpawn call, so the captured locals differ), and every boot dropped the mixin leniently.
+# Lost: Architectury's LIVING_CHECK_SPAWN for village and swamp hut cats (Forge's spawn events still fire).
+architectury.mixins.json:MixinCatSpawner#checkCatSpawn

@@ -1,0 +1,42 @@
+package alloy.compat120.input;
+
+import com.llamalad7.mixinextras.injector.ModifyExpressionValue;
+import java.util.Arrays;
+import net.minecraft.client.KeyMapping;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.Options;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * Fabric key registration after the options exist; only with -Dalloy.fabricAfterForge (ConflictReport.shouldApplyMixin).
+ *
+ * <p>That flag moves the Fabric client entrypoints behind ClientModLoader.begin, when {@code Minecraft.options} is set,
+ * and Fabric API's {@code KeyBindingRegistryImpl.registerKeyBinding} starts with "GameOptions has already been
+ * initialised" when it is: every Fabric mod that adds a key lost its whole client entrypoint. Here the check sees null, so
+ * Fabric's own duplicate checks and category registration still run, and the new mapping is appended to
+ * options.keyMappings. Forge's finishModLoading runs options.load(true) later, which reads the saved keys for the whole
+ * array (and OptionsKeyDedupe120 runs at its HEAD). Same class and method in fabric-key-binding-api-v1 on 1.20.1 to 1.21.11.
+ */
+@Pseudo
+@Mixin(targets = "net.fabricmc.fabric.impl.client.keybinding.KeyBindingRegistryImpl", remap = false)
+public abstract class LateFabricKeys120 {
+    @ModifyExpressionValue(method = "registerKeyBinding", remap = false,
+            at = @At(value = "FIELD", target = "Lnet/minecraft/client/Minecraft;options:Lnet/minecraft/client/Options;", remap = false))
+    private static Options alloy$optionsNotYet(Options options) {
+        return null;
+    }
+
+    @Inject(method = "registerKeyBinding", at = @At("RETURN"), remap = false)
+    private static void alloy$appendLate(KeyMapping mapping, CallbackInfoReturnable<KeyMapping> cir) {
+        Options o = Minecraft.getInstance().options;
+        if (o == null || o.keyMappings == null) return;
+        for (KeyMapping k : o.keyMappings) if (k == mapping) return;
+        KeyMapping[] n = Arrays.copyOf(o.keyMappings, o.keyMappings.length + 1);
+        n[n.length - 1] = mapping;
+        o.keyMappings = n;
+    }
+}

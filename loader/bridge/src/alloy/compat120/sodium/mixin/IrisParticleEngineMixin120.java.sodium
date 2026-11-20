@@ -1,0 +1,37 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.IrisFeatures120;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.particle.ParticleRenderType;
+import net.minecraft.client.renderer.ShaderInstance;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
+
+/**
+ * Iris particle phases on Forge 47's ParticleEngine.render(..., Frustum). Iris hooks the 5-argument one, which Forge's level
+ * renderer does not call, and Forge walks particles.keySet() instead of RENDER_ORDER. Same effect as Iris's
+ * iris$selectParticlesToRender and iris$changeParticleShader (both stripped).
+ */
+@Mixin(value = ParticleEngine.class, remap = false)
+public abstract class IrisParticleEngineMixin120 {
+    @SuppressWarnings("unchecked")
+    @WrapOperation(method = "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;"
+            + "Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V",
+            at = @At(value = "INVOKE", target = "Ljava/util/Map;keySet()Ljava/util/Set;"))
+    private Set<?> alloy$irisPhaseTypes(Map<?, ?> particles, Operation<Set<?>> original) {
+        return IrisFeatures120.filter((Set<ParticleRenderType>) original.call(particles));
+    }
+
+    @WrapOperation(method = "render(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;"
+            + "Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V",
+            at = @At(value = "INVOKE", target = "Lcom/mojang/blaze3d/systems/RenderSystem;setShader(Ljava/util/function/Supplier;)V"))
+    private void alloy$irisPhaseShader(Supplier<ShaderInstance> shader, Operation<Void> original) {
+        original.call(IrisFeatures120.shader(shader));
+    }
+}

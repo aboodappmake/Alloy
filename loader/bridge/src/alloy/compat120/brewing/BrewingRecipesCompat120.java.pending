@@ -1,0 +1,46 @@
+package alloy.compat120.brewing;
+
+import java.util.List;
+import net.fabricmc.fabric.api.registry.FabricBrewingRecipeRegistry;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.item.PotionItem;
+import net.minecraft.world.item.alchemy.Potion;
+import net.minecraft.world.item.alchemy.PotionBrewing;
+import net.minecraft.world.item.crafting.Ingredient;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.gen.Accessor;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): fabric-content-registries FabricBrewingRecipeRegistry builds
+ * {@code new PotionBrewing.Mix<>(from, ingredient, to)}, but Forge 47 changed Mix's constructor to
+ * {@code Mix(IForgeRegistry<T>, T, Ingredient, T)} (NoSuchMethodError, Wilder Wild's potions stop its main entrypoint).
+ * Build the Forge-shaped Mix and add it to the same vanilla lists.
+ */
+public final class BrewingRecipesCompat120 {
+    private BrewingRecipesCompat120() {}
+
+    @Mixin(value = PotionBrewing.class, remap = false)
+    public interface Lists {
+        @Accessor("POTION_MIXES") static List<PotionBrewing.Mix<Potion>> alloy$potionMixes() { throw new AssertionError(); }
+        @Accessor("CONTAINER_MIXES") static List<PotionBrewing.Mix<Item>> alloy$containerMixes() { throw new AssertionError(); }
+    }
+
+    @Mixin(value = FabricBrewingRecipeRegistry.class, remap = false)
+    public abstract static class Registry {
+        @Inject(method = "registerPotionRecipe", at = @At("HEAD"), cancellable = true)
+        private static void alloy$potion(Potion input, Ingredient item, Potion output, CallbackInfo ci) {
+            Lists.alloy$potionMixes().add(new PotionBrewing.Mix<>(ForgeRegistries.POTIONS, input, item, output));
+            ci.cancel();
+        }
+
+        @Inject(method = "registerItemRecipe", at = @At("HEAD"), cancellable = true)
+        private static void alloy$item(PotionItem input, Ingredient item, PotionItem output, CallbackInfo ci) {
+            Lists.alloy$containerMixes().add(new PotionBrewing.Mix<>(ForgeRegistries.ITEMS, input, item, output));
+            ci.cancel();
+        }
+    }
+}

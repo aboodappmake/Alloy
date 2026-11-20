@@ -1,0 +1,38 @@
+package alloy.compat121.sodium.mixin;
+
+import alloy.compat121support.sodium.IrisFeatures121;
+import alloy.compat121support.sodium.IrisFeatures121.Phase;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.client.Camera;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.culling.Frustum;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * Iris's late (translucent) particle pass on Forge 52: Forge's renderLevel calls the 4-argument ParticleEngine.render, and
+ * Iris's iris$renderTranslucentAfterDeferred redirects the 3-argument call, so the fitter stripped it. Same logic here:
+ * BEFORE draws nothing at the vanilla spot (Iris's early pass drew everything), MIXED draws the translucent types, AFTER
+ * draws everything. Iris's early pass (iris$renderOpaqueParticles, kept) does the opaque part.
+ */
+@Mixin(value = LevelRenderer.class, remap = false)
+public abstract class IrisParticlesMixin121 {
+    @WrapOperation(method = "renderLevel(Lnet/minecraft/client/DeltaTracker;ZLnet/minecraft/client/Camera;Lnet/minecraft/client/renderer/GameRenderer;"
+            + "Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;Lorg/joml/Matrix4f;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/particle/ParticleEngine;render(Lnet/minecraft/client/renderer/LightTexture;"
+                    + "Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V"))
+    private void alloy$irisLateParticles(ParticleEngine engine, LightTexture light, Camera camera, float partial, Frustum frustum,
+                                         Operation<Void> original) {
+        String order = IrisFeatures121.ordering();
+        if (order.equals("BEFORE")) return;
+        IrisFeatures121.setPhase(engine, order.equals("MIXED") ? Phase.TRANSLUCENT : Phase.EVERYTHING);
+        try {
+            original.call(engine, light, camera, partial, frustum);
+        } finally {
+            IrisFeatures121.setPhase(engine, Phase.EVERYTHING);
+        }
+    }
+}

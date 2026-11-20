@@ -1,0 +1,5 @@
+# Fields the bridge adds to game classes at runtime (owner name descriptor). The installer's fitter (Fit.bridgeFields)
+# treats a Fabric @Accessor or @Shadow of these as SAFE although the Forge jar it reads does not have them.
+# KeyMapView (bridge/src/alloy/KeyMapView.java): vanilla's Map-typed KeyMapping.MAP next to Forge's KeyMappingLookup.
+net/minecraft/client/KeyMapping MAP Ljava/util/Map;
+net/minecraft/client/KeyMapping f_90810_ Ljava/util/Map;

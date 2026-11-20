@@ -1,0 +1,33 @@
+package alloy.compat121.sodium.mixin;
+
+import alloy.compat121support.sodium.IrisPasses121;
+import com.mojang.blaze3d.buffers.GpuBufferSlice;
+import com.mojang.blaze3d.resource.ResourceHandle;
+import net.minecraft.client.Camera;
+import net.minecraft.client.DeltaTracker;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.util.profiling.ProfilerFiller;
+import org.joml.Matrix4f;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Minecraft 1.21.8, Iris 1.9.6: Iris's iris$beginTranslucents on Forge 58's main pass lambda. Forge 58 moved the Frustum and
+ * the boolean of vanilla's lambda$addMainPass$2 in front of its last two ResourceHandles, so Iris's selector found nothing
+ * and the fitter stripped it. Same point (the second endBatch()), same calls.
+ */
+@Mixin(value = LevelRenderer.class, remap = false)
+public abstract class IrisPassesMixin121 {
+    @Inject(method = "lambda$addMainPass$2(Lcom/mojang/blaze3d/buffers/GpuBufferSlice;Lnet/minecraft/client/DeltaTracker;Lnet/minecraft/client/Camera;"
+            + "Lnet/minecraft/util/profiling/ProfilerFiller;Lorg/joml/Matrix4f;Lcom/mojang/blaze3d/resource/ResourceHandle;Lcom/mojang/blaze3d/resource/ResourceHandle;"
+            + "Lnet/minecraft/client/renderer/culling/Frustum;ZLcom/mojang/blaze3d/resource/ResourceHandle;Lcom/mojang/blaze3d/resource/ResourceHandle;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;endBatch()V", ordinal = 1))
+    private void alloy$irisBeginTranslucents(GpuBufferSlice fog, DeltaTracker delta, Camera camera, ProfilerFiller profiler, Matrix4f modelMatrix,
+                                             ResourceHandle<?> h1, ResourceHandle<?> h2, Frustum frustum, boolean flag, ResourceHandle<?> h3,
+                                             ResourceHandle<?> h4, CallbackInfo ci) {
+        IrisPasses121.beginTranslucents(modelMatrix, delta.getGameTimeDeltaPartialTick(true), camera);
+    }
+}

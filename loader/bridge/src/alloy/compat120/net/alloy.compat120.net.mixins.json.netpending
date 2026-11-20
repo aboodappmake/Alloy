@@ -1,0 +1,14 @@
+{
+ "required": true, "minVersion": "0.8", "package": "alloy.compat120.net", "plugin": "alloy.ConflictReport", "compatibilityLevel": "JAVA_17",
+ "mixins": [
+  "ServerLoginAddonCompat120",
+  "ServerLoginProbe120",
+  "ConnectionReadFix120",
+  "RegistrySyncCompat120",
+  "ForgeNetRobustness120$NullVersionIsVanilla",
+  "ForgeNetRobustness120$LateHandshake",
+  "ForgeNetRobustness120$NoDuplicateFilter"
+ ],
+ "client": ["ForgeRegistrySyncCompat120", "ClientLoginProbe120"],
+ "injectors": {"defaultRequire": 1}
+}

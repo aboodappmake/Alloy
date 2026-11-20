@@ -1,0 +1,33 @@
+package alloy.compat120.sodium.mixin;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.llamalad7.mixinextras.sugar.Local;
+import me.jellysquid.mods.sodium.client.render.chunk.compile.pipeline.BlockOcclusionCache;
+import net.minecraft.core.BlockPos;
+import net.minecraft.core.Direction;
+import net.minecraft.world.level.BlockGetter;
+import net.minecraft.world.level.block.state.BlockState;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * R6: Forge's face hiding (IForgeBlockState.hidesNeighborFace / supportsExternalFaceHiding), which Forge checks in
+ * Block.shouldRenderFace right after skipRendering. Sodium has its own cull check and never calls it, so Framed Blocks,
+ * Create copycats and connected glass show inner faces.
+ */
+@Mixin(value = BlockOcclusionCache.class, remap = false)
+public abstract class BlockOcclusionCacheMixin120 {
+    /** Sodium sets this to the neighbour position just before the skipRendering call (named cpos up to Sodium 0.5.5, 1.20.2). */
+    @Shadow(aliases = "cpos") @Final private BlockPos.MutableBlockPos cachedPositionObject;
+
+    @WrapOperation(method = "shouldDrawSide(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/world/level/BlockGetter;Lnet/minecraft/core/BlockPos;Lnet/minecraft/core/Direction;)Z",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/world/level/block/state/BlockState;skipRendering(Lnet/minecraft/world/level/block/state/BlockState;Lnet/minecraft/core/Direction;)Z"))
+    private boolean alloy$forgeFaceHiding(BlockState self, BlockState other, Direction facing, Operation<Boolean> original,
+                                          @Local(argsOnly = true) BlockGetter view) {
+        if (original.call(self, other, facing)) return true;
+        return other.hidesNeighborFace(view, this.cachedPositionObject, self, facing.getOpposite()) && self.supportsExternalFaceHiding();
+    }
+}

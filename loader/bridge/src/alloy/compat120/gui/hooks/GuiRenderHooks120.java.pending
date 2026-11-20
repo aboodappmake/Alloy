@@ -1,0 +1,19 @@
+package alloy.compat120.gui.hooks;
+
+import alloy.compat120support.gui.GuiHooks120;
+import net.minecraft.client.gui.Gui;
+import net.minecraft.client.gui.GuiGraphics;
+import org.spongepowered.asm.mixin.Mixin;
+
+/**
+ * Adds the two hook methods to Gui. Their bodies are written by alloy.compat120support.gui.GuiHooksPlugin120 after every mod's mixin is
+ * in Gui (this config's priority is late on purpose). Empty here.
+ */
+@Mixin(Gui.class)
+public abstract class GuiRenderHooks120 implements GuiHooks120 {
+    @Override
+    public void alloy$fabricRenderHead(GuiGraphics graphics, float partialTick) { }
+
+    @Override
+    public void alloy$fabricRenderTail(GuiGraphics graphics, float partialTick) { }
+}

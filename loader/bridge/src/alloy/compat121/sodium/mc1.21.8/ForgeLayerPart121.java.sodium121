@@ -1,0 +1,25 @@
+package alloy.compat121support.sodium;
+
+import net.minecraft.client.renderer.block.model.BakedQuad;
+import net.minecraft.client.renderer.block.model.BlockModelPart;
+import net.minecraft.client.renderer.chunk.ChunkSectionLayer;
+import net.minecraft.client.renderer.texture.TextureAtlasSprite;
+import net.minecraft.core.Direction;
+
+import java.util.List;
+
+/** A model part Forge's collectParts returned for two layers (the same object): this copy carries the second layer. */
+public final class ForgeLayerPart121 implements BlockModelPart {
+    private final BlockModelPart part;
+    private final ChunkSectionLayer layer;
+
+    public ForgeLayerPart121(BlockModelPart part, ChunkSectionLayer layer) {
+        this.part = part;
+        this.layer = layer;
+    }
+
+    @Override public List<BakedQuad> getQuads(Direction face) { return part.getQuads(face); }
+    @Override public boolean useAmbientOcclusion() { return part.useAmbientOcclusion(); }
+    @Override public TextureAtlasSprite particleIcon() { return part.particleIcon(); }
+    @Override public ChunkSectionLayer layer() { return layer; }
+}

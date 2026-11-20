@@ -1,0 +1,24 @@
+package alloy.compat120.registry;
+
+import net.minecraft.core.MappedRegistry;
+import net.minecraft.core.Registry;
+import net.minecraft.resources.ResourceKey;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/** Debugging aid: -Dalloy.traceFreeze=minecraft:loot_function_type logs who freezes that built-in registry. */
+@Mixin(value = MappedRegistry.class, remap = false)
+public abstract class FreezeTrace120<T> {
+    private static final String ALLOY$TRACE = System.getProperty("alloy.traceFreeze", "");
+    @Shadow @Final ResourceKey<? extends Registry<T>> key;
+
+    @Inject(method = "freeze", at = @At("HEAD"))
+    private void alloy$traceFreeze(CallbackInfoReturnable<Registry<T>> cir) {
+        if (!ALLOY$TRACE.isEmpty() && key.location().toString().equals(ALLOY$TRACE))
+            org.slf4j.LoggerFactory.getLogger("Alloy").info("Alloy freeze trace: {}", key.location(), new Throwable("freeze"));
+    }
+}

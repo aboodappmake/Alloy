@@ -1,0 +1,55 @@
+package alloy.compat120.loot;
+
+import java.util.Map;
+import java.util.concurrent.CompletableFuture;
+import net.minecraft.world.level.storage.loot.LootDataId;
+import net.minecraft.world.level.storage.loot.LootDataManager;
+import net.minecraft.world.level.storage.loot.LootDataType;
+import net.minecraft.world.level.storage.loot.LootTable;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 (Forge 47, Fabric API 0.92.x): loot tables keep their Forge loot table id after Fabric rebuilds them.
+ *
+ * <p>Forge sets each table's id when it parses it (ForgeHooks.loadLootTable), and global loot modifiers match on it at roll
+ * time (LootTable.getRandomItems hands getLootTableId() to ForgeHooks.modifyLoot, which is what forge:loot_table_id tests).
+ * fabric-loot-api-v2 runs its REPLACE and MODIFY events after every reload and puts a newly built copy of every table into
+ * LootDataManager.elements. Those copies have no id, so id-based loot modifiers (most loot mods, data-pack GLMs) stop
+ * matching as soon as Fabric API is installed.
+ *
+ * <p>Fix: after the reload future (this mixin's priority is above Fabric's, so its step runs after Fabric's), every table
+ * without an id gets the id it is stored under. getElement does the same for any table handed out without one, so the
+ * order of the two reload steps does not matter. Forge's setLootTableId refuses a second id, so only null ids are set.
+ */
+@Mixin(value = LootDataManager.class, priority = 1100, remap = false)
+public abstract class LootIdCompat120 {
+    @Shadow private Map<LootDataId<?>, ?> elements;
+
+    @Inject(method = "reload", at = @At("RETURN"), cancellable = true)
+    private void alloy$keepLootTableIds(CallbackInfoReturnable<CompletableFuture<Void>> cir) {
+        cir.setReturnValue(cir.getReturnValue().thenRun(this::alloy$fixIds));
+    }
+
+    @Inject(method = "getElement", at = @At("RETURN"))
+    private void alloy$idOnGet(LootDataId<?> id, CallbackInfoReturnable<Object> cir) {
+        if (cir.getReturnValue() instanceof LootTable t && t.getLootTableId() == null) alloy$setId(id, t);
+    }
+
+    private void alloy$fixIds() {
+        Map<LootDataId<?>, ?> m = elements;
+        if (m == null) return;
+        for (Map.Entry<LootDataId<?>, ?> e : m.entrySet())
+            if (e.getValue() instanceof LootTable t && t.getLootTableId() == null) alloy$setId(e.getKey(), t);
+    }
+
+    private static void alloy$setId(LootDataId<?> id, LootTable t) {
+        if (id.type() != LootDataType.TABLE || id.equals(LootDataManager.EMPTY_LOOT_TABLE_KEY) || t == LootTable.EMPTY) return;
+        synchronized (t) {
+            if (t.getLootTableId() == null) t.setLootTableId(id.location());
+        }
+    }
+}

@@ -1,0 +1,19 @@
+package alloy.compat120.embeddium;
+
+import alloy.compat120support.embeddium.EmbeddiumFabricPages;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/** Tab titles of Embeddium's video settings: Forge's ModList only knows Forge mods, so a Fabric mod's tab showed its raw id. */
+@Pseudo
+@Mixin(targets = "org.embeddedt.embeddium.util.PlatformUtil", remap = false)
+public abstract class PlatformUtilCompat120 {
+    @Inject(method = "getModName", at = @At("RETURN"), cancellable = true, remap = false, require = 0)
+    private static void alloy$fabricName(String modId, CallbackInfoReturnable<String> cir) {
+        String n = EmbeddiumFabricPages.fabricName(modId, cir.getReturnValue());
+        if (n != null) cir.setReturnValue(n);
+    }
+}

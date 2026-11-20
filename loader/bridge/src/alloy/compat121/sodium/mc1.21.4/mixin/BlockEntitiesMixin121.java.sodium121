@@ -1,0 +1,46 @@
+package alloy.compat121.sodium.mixin;
+
+import alloy.compat121support.sodium.BoolRef121;
+import com.mojang.blaze3d.vertex.PoseStack;
+import it.unimi.dsi.fastutil.longs.Long2ObjectMap;
+import net.caffeinemc.mods.sodium.client.render.SodiumWorldRenderer;
+import net.minecraft.client.Camera;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.culling.Frustum;
+import net.minecraft.server.level.BlockDestructionProgress;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+import java.util.SortedSet;
+
+/**
+ * Minecraft 1.21.4: Sodium's core LevelRendererMixin @Overwrites the vanilla renderBlockEntities(PoseStack, BufferSource,
+ * BufferSource, Camera, float). Forge 54 changed it to renderBlockEntities(..., Frustum) returning whether a block entity
+ * glows (custom outline), so the overwrite has no target, and without this entry Alloy's fitter turned Sodium's whole
+ * LevelRendererMixin off (Sodium then drew nothing of its own). compat_replaces.1.21.4.txt strips just that overwrite and
+ * this does its job on Forge's method: Sodium draws the block entities of its visible sections, and the glow answer comes
+ * from Sodium (PlatformBlockAccess.shouldBlockEntityGlow, Forge's hasCustomOutlineRendering through ForgeBlockAccess121).
+ */
+@Mixin(value = LevelRenderer.class, remap = false, priority = 1100)
+public abstract class BlockEntitiesMixin121 {
+    @Shadow @Final private RenderBuffers renderBuffers;
+    @Shadow @Final private Long2ObjectMap<SortedSet<BlockDestructionProgress>> destructionProgress;
+
+    @Inject(method = "renderBlockEntities(Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;"
+            + "Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)Z",
+            at = @At("HEAD"), cancellable = true)
+    private void alloy$sodiumBlockEntities(PoseStack pose, MultiBufferSource.BufferSource buffers, MultiBufferSource.BufferSource crumbling,
+                                           Camera camera, float partial, Frustum frustum, CallbackInfoReturnable<Boolean> cir) {
+        SodiumWorldRenderer r = SodiumWorldRenderer.instanceNullable();
+        if (r == null) return;   // Sodium's renderer is not set up: Forge's own loop
+        BoolRef121 glow = new BoolRef121();
+        r.renderBlockEntities(new PoseStack(), this.renderBuffers, this.destructionProgress, camera, partial, glow);
+        cir.setReturnValue(glow.get());
+    }
+}

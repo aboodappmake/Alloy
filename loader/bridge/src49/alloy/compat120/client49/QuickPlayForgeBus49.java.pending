@@ -1,0 +1,36 @@
+package alloy.compat120.client49;
+
+import net.minecraft.client.quickplay.QuickPlay;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Forge 49: Minecraft's load-finished lambda runs onResourceLoadFinished (which starts Quick Play) before
+ * ClientModLoader.completeModLoading() starts MinecraftForge.EVENT_BUS. A Quick Play singleplayer world therefore loads its
+ * server resources while the bus is still shut down: AddReloadListenerEvent reaches nobody, Forge's LootModifierManager is
+ * never made and the first loot roll stops the integrated server ("Can not retrieve LootModifierManager until resources have
+ * loaded once"). Start the bus right before Quick Play connects, unless Forge's mod loading failed (then completeModLoading
+ * keeps it stopped and shows the error screen, as before). completeModLoading calls start() again later; that is a no-op.
+ */
+@Mixin(value = QuickPlay.class, remap = false)
+public abstract class QuickPlayForgeBus49 {
+    @Inject(method = "connect", at = @At("HEAD"))
+    private static void alloy$startForgeBus(CallbackInfo ci) {
+        try {
+            java.lang.reflect.Field f = Class.forName("net.minecraftforge.client.loading.ClientModLoader").getDeclaredField("error");
+            f.setAccessible(true);
+            if (f.get(null) != null) return;
+            net.minecraftforge.common.MinecraftForge.EVENT_BUS.start();
+        } catch (Throwable t) {
+            alloy$warn(t);
+        }
+    }
+
+    @Unique
+    private static void alloy$warn(Throwable t) {
+        org.slf4j.LoggerFactory.getLogger("Alloy").warn("Alloy: could not start Forge's event bus before Quick Play: {}", t.toString());
+    }
+}

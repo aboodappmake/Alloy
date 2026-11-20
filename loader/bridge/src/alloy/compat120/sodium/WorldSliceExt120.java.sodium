@@ -1,0 +1,12 @@
+package alloy.compat120support.sodium;
+
+import net.minecraft.core.BlockPos;
+import net.minecraftforge.client.model.data.ModelData;
+
+import java.util.Map;
+
+/** Added to Sodium's WorldSlice by mixin.WorldSliceMixin120: the ModelData snapshot of the section being meshed. */
+public interface WorldSliceExt120 {
+    void alloy$setModelData(Map<BlockPos, ModelData> snapshot);
+    Map<BlockPos, ModelData> alloy$modelData();
+}

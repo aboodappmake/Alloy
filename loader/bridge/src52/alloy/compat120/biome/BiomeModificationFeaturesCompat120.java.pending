@@ -1,0 +1,28 @@
+package alloy.compat120.biome;
+
+import java.util.function.Supplier;
+
+import net.minecraft.world.level.chunk.ChunkGenerator;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Redirect;
+
+/**
+ * 1.21.1 (Forge 52, Fabric API 0.116) copy of compat/biome/BiomeModificationFeaturesCompat (26.1). Fabric's
+ * BiomeModificationImpl.finalizeWorldGen rebuilds every chunk generator's per-step feature list after the biome modifications
+ * ran, by writing {@code ChunkGenerator.featuresPerStep} as a {@code Supplier}. Forge 52 made that field a
+ * {@code ClearableLazy} and added {@code refreshFeaturesPerStep()}, so the write died with "NoSuchFieldError: ... does not have
+ * member field 'java.util.function.Supplier featuresPerStep'" when the integrated server started, as soon as a Fabric mod
+ * added biome modifications (Bountiful Fares' wild plants). Forge 47 and 49 still have the Supplier, so 1.20.x needs nothing.
+ *
+ * <p>Fix: Forge's own refresh in place of the field write; it recomputes the steps from the (now modified) biome settings.
+ */
+@Mixin(targets = "net.fabricmc.fabric.impl.biome.modification.BiomeModificationImpl", remap = false)
+public abstract class BiomeModificationFeaturesCompat120 {
+    @Redirect(method = "lambda$finalizeWorldGen$6", remap = false,
+            at = @At(value = "FIELD", opcode = 181, remap = false,
+                    target = "Lnet/minecraft/world/level/chunk/ChunkGenerator;featuresPerStep:Ljava/util/function/Supplier;"))
+    private static void alloy$refreshFeaturesPerStep(ChunkGenerator generator, Supplier<?> fabricValue) {
+        generator.refreshFeaturesPerStep();
+    }
+}

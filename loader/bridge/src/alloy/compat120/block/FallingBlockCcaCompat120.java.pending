@@ -1,0 +1,65 @@
+package alloy.compat120.block;
+
+import java.lang.reflect.Method;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.minecraft.nbt.CompoundTag;
+import net.minecraft.world.entity.item.FallingBlockEntity;
+import net.minecraft.world.level.block.entity.BlockEntity;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * 1.20.1 (Forge 47): Cardinal Components (cardinal-components-block 5.x) reads a landed falling block's components after
+ * {@code blockEntity.load(tag)} in FallingBlockEntity.tick. Its handler (common.MixinFallingBlockEntity#readComponentData)
+ * captures the method's locals, and Forge's patched tick has other locals, so the injection finds nothing and CCA's
+ * defaultRequire = 1 stops the game. The handler is stripped (compat_replaces.1.20.1.txt) and this wrap does the same
+ * without locals: after load, the block entity's component container reads the same tag. Without CCA it does nothing.
+ */
+@Mixin(FallingBlockEntity.class)
+public abstract class FallingBlockCcaCompat120 {
+    @Unique private static final Logger ALLOY$LOG = LoggerFactory.getLogger("Alloy");
+    @Unique private static volatile boolean alloy$warned;
+
+    @WrapOperation(method = "tick", at = @At(value = "INVOKE",
+            target = "Lnet/minecraft/world/level/block/entity/BlockEntity;load(Lnet/minecraft/nbt/CompoundTag;)V"))
+    private void alloy$ccaReadComponents(BlockEntity be, CompoundTag tag, Operation<Void> original) {
+        original.call(be, tag);
+        try {
+            Method asProvider = alloy$find(be.getClass(), "asComponentProvider");
+            if (asProvider == null) return;   // no CCA block components
+            Object provider = asProvider.invoke(be);
+            Method container = alloy$find(provider.getClass(), "getComponentContainer");
+            Object c = container.invoke(provider);
+            alloy$find(c.getClass(), "fromTag", CompoundTag.class).invoke(c, tag);
+        } catch (Throwable t) {
+            if (!alloy$warned) {
+                alloy$warned = true;
+                ALLOY$LOG.warn("Alloy compat: could not read Cardinal Components data of a landed falling block: {}", t.toString());
+            }
+        }
+    }
+
+    @Unique
+    private static Method alloy$find(Class<?> c, String name, Class<?>... args) {
+        for (Class<?> k = c; k != null; k = k.getSuperclass()) {
+            try {
+                Method m = k.getDeclaredMethod(name, args);
+                m.setAccessible(true);
+                return m;
+            } catch (NoSuchMethodException ignored) {
+                // look further up, then in interfaces
+            }
+        }
+        try {
+            Method m = c.getMethod(name, args);
+            m.setAccessible(true);
+            return m;
+        } catch (NoSuchMethodException e) {
+            return null;
+        }
+    }
+}

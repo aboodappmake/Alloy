@@ -1,0 +1,127 @@
+package alloy.compat120support.gui;
+
+import org.objectweb.asm.Opcodes;
+import org.objectweb.asm.tree.*;
+import org.spongepowered.asm.mixin.extensibility.IMixinConfigPlugin;
+import org.spongepowered.asm.mixin.extensibility.IMixinInfo;
+
+import java.util.*;
+
+/**
+ * Mixin config plugin of alloy.compat120.gui.mixins.json (1.20.1, Forge 47).
+ *
+ * <p>Fabric mods draw their HUD with @Inject into Gui.render at HEAD or TAIL/RETURN (malilib for MiniHUD, Tweakeroo and
+ * Litematica, and many small HUD mods). Forge's client uses ForgeGui, which overrides render and never calls super, so
+ * those handlers never run and the mod draws nothing. No error is logged.
+ *
+ * <p>GuiRenderHooks120 adds two empty methods to Gui and has a late priority, so when its postApply runs every other
+ * mod's injector is already in Gui.render. This plugin reads Gui.render, takes the handler calls that sit before the first
+ * vanilla call (HEAD) and after the last one (TAIL, RETURN) and that have the plain handler shape
+ * (GuiGraphics, float, CallbackInfo), and writes the same calls into alloy$fabricRenderHead / alloy$fabricRenderTail.
+ * ForgeHooks120 calls those at the start and end of ForgeGui.render. Gui.render itself is not changed.
+ * A HEAD handler that cancels does not stop Forge's HUD (the CallbackInfo is a fresh one each frame).
+ */
+public final class GuiHooksPlugin120 implements IMixinConfigPlugin {
+    static final String GUI = "net/minecraft/client/gui/Gui";
+    static final String GG = "Lnet/minecraft/client/gui/GuiGraphics;";
+    static final String RENDER = "(" + GG + "F)V";
+    static final String CI = "org/spongepowered/asm/mixin/injection/callback/CallbackInfo";
+    static final String HANDLER = "(" + GG + "FL" + CI + ";)V";
+    static final String MERGED = "Lorg/spongepowered/asm/mixin/transformer/meta/MixinMerged;";
+
+    @Override public void onLoad(String mixinPackage) { }
+    @Override public String getRefMapperConfig() { return null; }
+    @Override public boolean shouldApplyMixin(String targetClassName, String mixinClassName) { return true; }
+    @Override public void acceptTargets(Set<String> myTargets, Set<String> otherTargets) { }
+    @Override public List<String> getMixins() { return null; }
+    @Override public void preApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) { }
+
+    @Override
+    public void postApply(String targetClassName, ClassNode targetClass, String mixinClassName, IMixinInfo mixinInfo) {
+        if (!mixinClassName.endsWith(".GuiRenderHooks120")) return;
+        try {
+            fill(targetClass);
+        } catch (Throwable e) {
+            System.err.println("[alloy] Gui render hooks: " + e);
+        }
+    }
+
+    static boolean merged(MethodNode m) {
+        for (List<AnnotationNode> l : Arrays.asList(m.visibleAnnotations, m.invisibleAnnotations))
+            if (l != null) for (AnnotationNode a : l) if (MERGED.equals(a.desc)) return true;
+        return false;
+    }
+
+    static MethodNode find(ClassNode c, String name, String desc) {
+        for (MethodNode m : c.methods) if (m.name.equals(name) && m.desc.equals(desc)) return m;
+        return null;
+    }
+
+    static void fill(ClassNode gui) {
+        MethodNode render = find(gui, "render", RENDER);
+        MethodNode head = find(gui, "alloy$fabricRenderHead", RENDER), tail = find(gui, "alloy$fabricRenderTail", RENDER);
+        if (render == null || head == null || tail == null) {
+            System.err.println("[alloy] Gui render hooks: Gui.render or the hook methods not found, Fabric HUD handlers stay off");
+            return;
+        }
+        Map<String, MethodNode> handlers = new HashMap<>();
+        Set<String> anyMerged = new HashSet<>();
+        for (MethodNode m : gui.methods) {
+            if (!merged(m)) continue;
+            anyMerged.add(m.name + m.desc);
+            if (m.desc.equals(HANDLER)) handlers.put(m.name, m);
+        }
+        List<MethodInsnNode> calls = new ArrayList<>();
+        List<Integer> at = new ArrayList<>();
+        int first = Integer.MAX_VALUE, last = -1, i = 0;
+        for (AbstractInsnNode n : render.instructions) {
+            i++;
+            if (!(n instanceof MethodInsnNode mi)) continue;
+            if (mi.owner.equals(GUI) && anyMerged.contains(mi.name + mi.desc)) {
+                if (handlers.containsKey(mi.name) && mi.desc.equals(HANDLER)) { calls.add(mi); at.add(i); }
+                continue;
+            }
+            if (mi.owner.startsWith("org/spongepowered/")) continue;
+            first = Math.min(first, i);
+            last = Math.max(last, i);
+        }
+        List<String> hs = new ArrayList<>(), ts = new ArrayList<>();
+        write(head, gui, handlers, calls, at, k -> k < 0, first, last, hs);
+        write(tail, gui, handlers, calls, at, k -> k > 0, first, last, ts);
+        if (!hs.isEmpty() || !ts.isEmpty())
+            System.out.println("[alloy] Gui render hooks: ForgeGui runs " + hs.size() + " Fabric HEAD handler(s) " + hs + " and "
+                    + ts.size() + " TAIL handler(s) " + ts + " of Gui.render");
+    }
+
+    interface Side { boolean ok(int where); }
+
+    static void write(MethodNode stub, ClassNode gui, Map<String, MethodNode> handlers, List<MethodInsnNode> calls, List<Integer> at,
+                      Side side, int first, int last, List<String> names) {
+        InsnList l = new InsnList();
+        for (int k = 0; k < calls.size(); k++) {
+            int p = at.get(k);
+            int where = p < first ? -1 : p > last ? 1 : 0;
+            if (!side.ok(where)) continue;
+            MethodInsnNode c = calls.get(k);
+            MethodNode h = handlers.get(c.name);
+            boolean st = (h.access & Opcodes.ACC_STATIC) != 0;
+            if (!st) l.add(new VarInsnNode(Opcodes.ALOAD, 0));
+            l.add(new VarInsnNode(Opcodes.ALOAD, 1));
+            l.add(new VarInsnNode(Opcodes.FLOAD, 2));
+            l.add(new TypeInsnNode(Opcodes.NEW, CI));
+            l.add(new InsnNode(Opcodes.DUP));
+            l.add(new LdcInsnNode("render"));
+            l.add(new InsnNode(Opcodes.ICONST_1));   // cancellable: a handler that cancels must not throw here
+            l.add(new MethodInsnNode(Opcodes.INVOKESPECIAL, CI, "<init>", "(Ljava/lang/String;Z)V", false));
+            int op = st ? Opcodes.INVOKESTATIC : (h.access & Opcodes.ACC_PRIVATE) != 0 ? Opcodes.INVOKESPECIAL : Opcodes.INVOKEVIRTUAL;
+            l.add(new MethodInsnNode(op, GUI, c.name, c.desc, false));
+            names.add(c.name);
+        }
+        l.add(new InsnNode(Opcodes.RETURN));
+        stub.instructions = l;
+        stub.tryCatchBlocks = new ArrayList<>();
+        stub.localVariables = null;
+        stub.maxStack = 8;
+        stub.maxLocals = 3;
+    }
+}

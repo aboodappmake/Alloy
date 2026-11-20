@@ -1,0 +1,77 @@
+package alloy.compat120.sodium.mixin;
+
+import alloy.compat120support.sodium.IrisFeatures120;
+import alloy.compat120support.sodium.IrisFeatures120.Phase;
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import com.mojang.blaze3d.vertex.PoseStack;
+import net.minecraft.client.Camera;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.particle.ParticleEngine;
+import net.minecraft.client.renderer.GameRenderer;
+import net.minecraft.client.renderer.LevelRenderer;
+import net.minecraft.client.renderer.LightTexture;
+import net.minecraft.client.renderer.MultiBufferSource;
+import net.minecraft.client.renderer.RenderBuffers;
+import net.minecraft.client.renderer.culling.Frustum;
+import org.joml.Matrix4f;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfo;
+
+/**
+ * Iris particle phases in Forge 47's LevelRenderer.renderLevel, which calls the 6-argument ParticleEngine.render. Iris's
+ * iris$renderOpaqueParticles and iris$renderTranslucentAfterDeferred target the 5-argument one and are stripped.
+ * BEFORE: everything before entities, nothing at the vanilla spot. MIXED: opaque before entities, translucent at the
+ * vanilla spot. AFTER: everything at the vanilla spot.
+ */
+@Mixin(value = LevelRenderer.class, remap = false)
+public abstract class IrisParticlesMixin120 {
+    @Shadow @Final private Minecraft minecraft;
+    @Shadow @Final private RenderBuffers renderBuffers;
+    @Shadow public abstract Frustum getFrustum();
+
+    @Inject(method = "renderLevel(Lcom/mojang/blaze3d/vertex/PoseStack;FJZLnet/minecraft/client/Camera;"
+            + "Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;)V",
+            at = @At("HEAD"))
+    private void alloy$irisResetPhase(PoseStack pose, float partial, long nanos, boolean outline, Camera camera, GameRenderer gr,
+                                      LightTexture light, Matrix4f projection, CallbackInfo ci) {
+        IrisFeatures120.phase = Phase.EVERYTHING;
+    }
+
+    @Inject(method = "renderLevel(Lcom/mojang/blaze3d/vertex/PoseStack;FJZLnet/minecraft/client/Camera;"
+            + "Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;)V",
+            at = @At(value = "CONSTANT", args = "stringValue=entities"))
+    private void alloy$irisEarlyParticles(PoseStack pose, float partial, long nanos, boolean outline, Camera camera, GameRenderer gr,
+                                          LightTexture light, Matrix4f projection, CallbackInfo ci) {
+        String order = IrisFeatures120.ordering();
+        if (!order.equals("BEFORE") && !order.equals("MIXED")) return;
+        this.minecraft.getProfiler().popPush("opaque_particles");
+        IrisFeatures120.phase = order.equals("MIXED") ? Phase.OPAQUE : Phase.EVERYTHING;
+        try {
+            this.minecraft.particleEngine.render(pose, this.renderBuffers.bufferSource(), light, camera, partial, this.getFrustum());
+        } finally {
+            IrisFeatures120.phase = Phase.EVERYTHING;
+        }
+    }
+
+    @WrapOperation(method = "renderLevel(Lcom/mojang/blaze3d/vertex/PoseStack;FJZLnet/minecraft/client/Camera;"
+            + "Lnet/minecraft/client/renderer/GameRenderer;Lnet/minecraft/client/renderer/LightTexture;Lorg/joml/Matrix4f;)V",
+            at = @At(value = "INVOKE", target = "Lnet/minecraft/client/particle/ParticleEngine;render("
+                    + "Lcom/mojang/blaze3d/vertex/PoseStack;Lnet/minecraft/client/renderer/MultiBufferSource$BufferSource;"
+                    + "Lnet/minecraft/client/renderer/LightTexture;Lnet/minecraft/client/Camera;FLnet/minecraft/client/renderer/culling/Frustum;)V"))
+    private void alloy$irisLateParticles(ParticleEngine engine, PoseStack pose, MultiBufferSource.BufferSource buffers, LightTexture light,
+                                         Camera camera, float partial, Frustum frustum, Operation<Void> original) {
+        String order = IrisFeatures120.ordering();
+        if (order.equals("BEFORE")) return;
+        IrisFeatures120.phase = order.equals("MIXED") ? Phase.TRANSLUCENT : Phase.EVERYTHING;
+        try {
+            original.call(engine, pose, buffers, light, camera, partial, frustum);
+        } finally {
+            IrisFeatures120.phase = Phase.EVERYTHING;
+        }
+    }
+}

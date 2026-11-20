@@ -1,0 +1,83 @@
+package alloy.compat120.gui;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenEvents;
+import net.fabricmc.fabric.api.client.screen.v1.ScreenKeyboardEvents;
+import net.minecraft.client.KeyboardHandler;
+import net.minecraft.client.Minecraft;
+import net.minecraft.client.gui.GuiGraphics;
+import net.minecraft.client.gui.screens.Screen;
+import net.minecraft.client.renderer.GameRenderer;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * Fabric screen events on Forge 48 and 49 (src49 overlay of the Forge 47 file, only the tick lambda differs):
+ * ScreenKeyboardEvents (allow/before/after key press and release), ScreenEvents
+ * before/afterRender and before/afterTick. Fabric's fabric-screen-api-v1 hooks for these are stripped (prefit_strip):
+ * <ul>
+ *   <li>keys: Forge's {@code KeyboardHandler.keyPress} lambda has another descriptor ({@code lambda$keyPress$5(I[ZScreen;III)V},
+ *       vanilla {@code (IScreen;[ZIII)V}). Screen.keyPressed / keyReleased are still called in it, between Forge's
+ *       onScreenKeyPressedPre/Post (and Released) hooks.</li>
+ *   <li>render: GameRenderer.render calls {@code ForgeHooksClient.drawScreen} instead of {@code Screen.renderWithTooltip}.</li>
+ *   <li>tick: the screen tick lambda is {@code lambda$tick$49} on Forge 48 (1.20.2) and {@code lambda$tick$50} on Forge 49
+ *       (1.20.4); each game has only one of them that calls {@code Screen.tick} (javap), so one wrap applies.</li>
+ * </ul>
+ * Each wrap fires the Fabric events once around Forge's call, in Fabric's order (allow, before, the call, after). A key press
+ * that a listener does not allow counts as handled, as in Fabric. Mouse events and AFTER_INIT still work through Fabric's
+ * own mixins.
+ */
+public final class ScreenEventsCompat120 {
+    private ScreenEventsCompat120() {}
+
+    @Mixin(value = KeyboardHandler.class, remap = false)
+    public abstract static class Keys {
+        @WrapOperation(method = "lambda$keyPress$5(I[ZLnet/minecraft/client/gui/screens/Screen;III)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;keyPressed(III)Z"))
+        private static boolean alloy$keyPressed(Screen screen, int key, int scancode, int modifiers, Operation<Boolean> original) {
+            if (!ScreenKeyboardEvents.allowKeyPress(screen).invoker().allowKeyPress(screen, key, scancode, modifiers)) {
+                return true;
+            }
+            ScreenKeyboardEvents.beforeKeyPress(screen).invoker().beforeKeyPress(screen, key, scancode, modifiers);
+            boolean handled = original.call(screen, key, scancode, modifiers);
+            ScreenKeyboardEvents.afterKeyPress(screen).invoker().afterKeyPress(screen, key, scancode, modifiers);
+            return handled;
+        }
+
+        @WrapOperation(method = "lambda$keyPress$5(I[ZLnet/minecraft/client/gui/screens/Screen;III)V", remap = false,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;keyReleased(III)Z"))
+        private static boolean alloy$keyReleased(Screen screen, int key, int scancode, int modifiers, Operation<Boolean> original) {
+            if (!ScreenKeyboardEvents.allowKeyRelease(screen).invoker().allowKeyRelease(screen, key, scancode, modifiers)) {
+                return true;
+            }
+            ScreenKeyboardEvents.beforeKeyRelease(screen).invoker().beforeKeyRelease(screen, key, scancode, modifiers);
+            boolean handled = original.call(screen, key, scancode, modifiers);
+            ScreenKeyboardEvents.afterKeyRelease(screen).invoker().afterKeyRelease(screen, key, scancode, modifiers);
+            return handled;
+        }
+    }
+
+    @Mixin(value = GameRenderer.class, remap = false)
+    public abstract static class Render {
+        @WrapOperation(method = "render(FJZ)V", remap = false,
+                at = @At(value = "INVOKE", remap = false,
+                        target = "Lnet/minecraftforge/client/ForgeHooksClient;drawScreen(Lnet/minecraft/client/gui/screens/Screen;Lnet/minecraft/client/gui/GuiGraphics;IIF)V"))
+        private void alloy$drawScreen(Screen screen, GuiGraphics graphics, int mouseX, int mouseY, float tickDelta, Operation<Void> original) {
+            ScreenEvents.beforeRender(screen).invoker().beforeRender(screen, graphics, mouseX, mouseY, tickDelta);
+            original.call(screen, graphics, mouseX, mouseY, tickDelta);
+            ScreenEvents.afterRender(screen).invoker().afterRender(screen, graphics, mouseX, mouseY, tickDelta);
+        }
+    }
+
+    @Mixin(value = Minecraft.class, remap = false)
+    public abstract static class Tick {
+        @WrapOperation(method = {"lambda$tick$49()V", "lambda$tick$50()V"}, remap = false, require = 1,
+                at = @At(value = "INVOKE", remap = false, target = "Lnet/minecraft/client/gui/screens/Screen;tick()V"))
+        private void alloy$tickScreen(Screen screen, Operation<Void> original) {
+            ScreenEvents.beforeTick(screen).invoker().beforeTick(screen);
+            original.call(screen);
+            ScreenEvents.afterTick(screen).invoker().afterTick(screen);
+        }
+    }
+}

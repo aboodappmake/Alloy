@@ -1,0 +1,53 @@
+package alloy.compat120.net49;
+
+import com.llamalad7.mixinextras.injector.wrapoperation.Operation;
+import com.llamalad7.mixinextras.injector.wrapoperation.WrapOperation;
+import net.fabricmc.fabric.impl.networking.payload.PacketByteBufLoginQueryRequestPayload;
+import net.minecraft.client.multiplayer.ClientHandshakePacketListenerImpl;
+import net.minecraft.network.Connection;
+import net.minecraft.network.FriendlyByteBuf;
+import net.minecraft.network.protocol.login.ClientboundCustomQueryPacket;
+import net.minecraft.network.protocol.login.custom.DiscardedQueryPayload;
+import net.minecraft.resources.ResourceLocation;
+import net.minecraftforge.network.ICustomPacket;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Unique;
+import org.spongepowered.asm.mixin.injection.At;
+
+/**
+ * 1.20.2 / 1.20.4 (Forge 48 / 49, Fabric API 0.91 / 0.97): a Fabric mod's login query must not reach Forge's login hook.
+ *
+ * Forge patches ClientHandshakePacketListenerImpl.handleCustomQuery to call ForgeHooks.onCustomPayload first, and its
+ * ClientboundCustomQueryPacket.getInternalData casts the payload to vanilla's DiscardedQueryPayload. A query that a Fabric
+ * mod sends with ServerLoginNetworking (Forge Config API Port's config sync, in the reg051 1.20.4 set) is Fabric's
+ * PacketByteBufLoginQueryRequestPayload, so joining the integrated server failed with "ClassCastException:
+ * PacketByteBufLoginQueryRequestPayload cannot be cast to DiscardedQueryPayload" and the client sat on "Failed to connect".
+ * Fabric's own handler sits after Forge's call (after updateStatus), so it never got the query.
+ *
+ * Here Forge's call sees only payloads it can read: a Fabric payload for an id that Forge has a channel for is handed to Forge
+ * as the DiscardedQueryPayload Forge's reader would have made; any other Fabric payload skips Forge (false) and goes on to
+ * Fabric's handler, as on plain Fabric.
+ */
+@Mixin(value = ClientHandshakePacketListenerImpl.class, remap = false)
+public abstract class FabricLoginQuery49 {
+    @WrapOperation(method = "handleCustomQuery", at = @At(value = "INVOKE",
+            target = "Lnet/minecraftforge/common/ForgeHooks;onCustomPayload(Lnet/minecraftforge/network/ICustomPacket;Lnet/minecraft/network/Connection;)Z"))
+    private boolean alloy$fabricQuery(ICustomPacket<?> packet, Connection connection, Operation<Boolean> original) {
+        ICustomPacket<?> forge = alloy$forForge(packet);
+        return forge != null && original.call(forge, connection);
+    }
+
+    /** the packet Forge may read, or null when the query is Fabric's alone */
+    @Unique
+    private static ICustomPacket<?> alloy$forForge(ICustomPacket<?> packet) {
+        if (!(packet instanceof ClientboundCustomQueryPacket q) || q.payload() instanceof DiscardedQueryPayload) return packet;
+        if (!(q.payload() instanceof PacketByteBufLoginQueryRequestPayload p)) return null;
+        ResourceLocation id = p.id();
+        try {
+            if (id == null || net.minecraftforge.network.NetworkRegistry.findTarget(id) == null) return null;
+        } catch (Throwable t) {
+            return null;
+        }
+        return new ClientboundCustomQueryPacket(q.transactionId(), new DiscardedQueryPayload(id, new FriendlyByteBuf(p.data().copy())));
+    }
+}

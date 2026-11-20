@@ -1,0 +1,46 @@
+package alloy.compat120.color;
+
+import java.util.Map;
+import net.fabricmc.fabric.impl.client.rendering.ColorProviderRegistryImpl;
+import net.minecraft.client.color.block.BlockColor;
+import net.minecraft.client.color.block.BlockColors;
+import net.minecraft.core.Holder;
+import net.minecraft.world.level.block.Block;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * 1.20.1 to 1.21.11 (Forge 47 and up): replaces fabric-rendering-v1's BlockColorsMixin, which the prefit strips because it
+ * shadows vanilla's {@code IdMapper blockColors} and Forge keeps {@code Map<Holder.Reference<Block>, BlockColor>} instead.
+ *
+ * <p>That mixin was also the only caller of {@code ColorProviderRegistryImpl.BLOCK.initialize(...)}. Without it every Fabric
+ * block color provider stays in Fabric's temp buffer and Fabric blocks render untinted. Here, as in Fabric:
+ * <ul>
+ * <li>at RETURN of {@code createDefault} (after Forge's RegisterColorHandlersEvent) Fabric gets the instance, flushes its
+ * buffer through {@code register(...)} and writes later registrations straight in. Forge's event never sees Fabric
+ * providers, so nothing is registered twice. The instance lives for the whole game, so F3+T keeps the tints;</li>
+ * <li>{@code ColorMapperHolder.get} serves {@code ColorProviderRegistry.BLOCK.get(block)} from Forge's map (without it
+ * that call would throw ClassCastException once {@code initialize} has run).</li>
+ * </ul>
+ * javap: createDefault, the field and {@code IForgeRegistry.getDelegate(V)} are the same on Forge 47.4.29, 48.1.0, 49.2.13,
+ * 52.1.21 and the 1.21.4 / 1.21.8 / 1.21.11 builds.
+ */
+@Mixin(value = BlockColors.class, remap = false)
+public abstract class BlockColorsCompat120 implements ColorProviderRegistryImpl.ColorMapperHolder<Block, BlockColor> {
+    @Shadow @Final private Map<Holder.Reference<Block>, BlockColor> blockColors;
+
+    @Inject(method = "createDefault", at = @At("RETURN"))
+    private static void alloy$fabricColors(CallbackInfoReturnable<BlockColors> cir) {
+        ColorProviderRegistryImpl.BLOCK.initialize(cir.getReturnValue());
+    }
+
+    @Override
+    public BlockColor get(Block block) {
+        return ForgeRegistries.BLOCKS.getDelegate(block).map(blockColors::get).orElse(null);
+    }
+}

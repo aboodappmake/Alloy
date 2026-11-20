@@ -1,0 +1,48 @@
+# Fabric API injectors that cannot apply on 1.21.11 Forge. Same format as compat_replaces.txt (config:mixin#handler).
+# Found with an offline mixin check against the Forge game jar, then checked in boots.
+# offline check rounds (fit120.py, 10 report(s)):
+fabric-data-generation-api-v1.mixins.json:TagAppenderMixin
+fabric-data-generation-api-v1.mixins.json:TagAppenderMixin$ProvidedTagBuilder1Mixin
+fabric-data-generation-api-v1.mixins.json:TagAppenderMixin$ProvidedTagBuilder2Mixin
+fabric-data-generation-api-v1.mixins.json:TagsProviderMixin
+fabric-registry-sync-v0.client.mixins.json:BlockColorsMixin
+fabric-renderer-api-v1.mixins.json:client.sprite.ModelManager1Mixin
+fabric-rendering-v1.mixins.json:BlockColorsMixin
+fabric-tag-api-v1.mixins.json:TagFileMixin
+fabric-renderer-indigo.mixins.json:BlockRenderDispatcherMixin#afterGetModel
+fabric-renderer-indigo.mixins.json:BlockRenderDispatcherMixin#renderProxy
+fabric-particles-v1.client.mixins.json:TerrainParticleMixin#removeUntintableParticles
+fabric-rendering-v1.mixins.json:LevelRendererMixin#afterBlockOutlineExtraction
+fabric-rendering-fluids-v1.mixins.json:LiquidBlockRendererMixin#modTintColor
+fabric-rendering-fluids-v1.mixins.json:LiquidBlockRendererMixin#modifyOverlaySprite
+fabric-data-generation-api-v1.client.mixins.json:ModelProviderItemInfoCollectorMixin#filterItemsForProcessingMod
+fabric-events-interaction-v0.mixins.json:ItemStackMixin#handleUseOnEvent
+fabric-object-builder-v1.mixins.json:VillagerTradesEmeraldsForVillagerTypeItemMixin#disableVanillaCheck
+fabric-object-builder-v1.client.mixins.json:HangingSignEditScreenMixin#init
+fabric-object-builder-v1.client.mixins.json:SheetsMixin#redirectHangingVanillaId
+fabric-object-builder-v1.client.mixins.json:SheetsMixin#redirectSignVanillaId
+fabric-registry-sync-v0.mixins.json:BootstrapMixin#afterInitialize
+fabric-registry-sync-v0.mixins.json:RegistryPatchGeneratorMixin#getDynamicRegistries
+fabric-registry-sync-v0.mixins.json:RegistrySynchronizationMixin#filterNonSyncedEntries
+fabric-registry-sync-v0.mixins.json:RegistrySynchronizationMixin#filterNonSyncedEntriesAgain
+fabric-renderer-api-v1.mixins.json:client.block.particle.ScreenEffectRendererMixin#onReturnGetInWallBlockState
+fabric-resource-conditions-api-v1.mixins.json:RegistryDataLoaderMixin#checkResourceCondition
+fabric-resource-conditions-api-v1.mixins.json:SimpleJsonResourceReloadListenerMixin#skipData
+fabric-tag-api-v1.mixins.json:TagLoaderMixin#removeEntriesFromTags
+# Boot check: Forge's compile() has its model data map as the first Map local, so Indigo's @Local Map picks it (immutable)
+# and the chunk build crashed (UnsupportedOperationException in getOrBeginLayer). Indigo terrain hooks off: vanilla path,
+# as on 1.21.1 and 1.21.4 where the offline check already strips hookBuildRenderBlock.
+fabric-renderer-indigo.mixins.json:SectionCompilerMixin#hookBuild
+fabric-renderer-indigo.mixins.json:SectionCompilerMixin#hookBuildRenderBlock
+fabric-renderer-indigo.mixins.json:SectionCompilerMixin#hookBuildReturn
+# servers121 dry boots: the server Language redirect finds no target on Forge 61 (lenient skip on every server boot); server side
+# language loading of Fabric mods' lang files stays off, as it already was
+fabric-resource-loader-v1.mixins.json:server.LanguageMixin#create
+# Fabric Sodium 0.8.14: FRAPI BlockRenderDispatcherMixin groups a vanilla renderSingleBlock redirect with a NeoForge-only one
+# (@Group min 1); Forge 61's renderSingleBlock only delegates, so neither applies and the group fails. Off: blocks rendered
+# outside chunks through renderSingleBlock use the vanilla path
+sodium-frapi.mixins.json:BlockRenderDispatcherMixin
+# Fabric Sodium 0.8.14: its fast path for blocks drawn outside chunks injects into vanilla renderModel(Pose, VertexConsumer,
+# BlockStateModel, FFFII) with a handler that does not match Forge 61's method (Mixin: "Invalid descriptor"). Off: those
+# blocks use Forge's renderModel (same picture, only slower)
+sodium-fabric.mixins.json:features.render.model.block.ModelBlockRendererMixin

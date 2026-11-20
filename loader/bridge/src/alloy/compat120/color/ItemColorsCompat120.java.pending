@@ -1,0 +1,37 @@
+package alloy.compat120.color;
+
+import java.util.Map;
+import net.fabricmc.fabric.impl.client.rendering.ColorProviderRegistryImpl;
+import net.minecraft.client.color.block.BlockColors;
+import net.minecraft.client.color.item.ItemColor;
+import net.minecraft.client.color.item.ItemColors;
+import net.minecraft.core.Holder;
+import net.minecraft.world.item.Item;
+import net.minecraft.world.level.ItemLike;
+import net.minecraftforge.registries.ForgeRegistries;
+import org.spongepowered.asm.mixin.Final;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Shadow;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * Forge 47 to 52 (1.20.1 to 1.21.1): replaces fabric-rendering-v1's ItemColorsMixin, the item half of
+ * {@link BlockColorsCompat120} (see there). Forge keeps {@code Map<Holder.Reference<Item>, ItemColor> itemColors}.
+ * 1.21.4 and later have no ItemColors (item tints are in the item models), so this is not built there.
+ */
+@Mixin(value = ItemColors.class, remap = false)
+public abstract class ItemColorsCompat120 implements ColorProviderRegistryImpl.ColorMapperHolder<ItemLike, ItemColor> {
+    @Shadow @Final private Map<Holder.Reference<Item>, ItemColor> itemColors;
+
+    @Inject(method = "createDefault", at = @At("RETURN"))
+    private static void alloy$fabricColors(BlockColors blockColors, CallbackInfoReturnable<ItemColors> cir) {
+        ColorProviderRegistryImpl.ITEM.initialize(cir.getReturnValue());
+    }
+
+    @Override
+    public ItemColor get(ItemLike item) {
+        return ForgeRegistries.ITEMS.getDelegate(item.asItem()).map(itemColors::get).orElse(null);
+    }
+}

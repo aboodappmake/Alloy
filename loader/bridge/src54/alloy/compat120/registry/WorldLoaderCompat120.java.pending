@@ -1,0 +1,35 @@
+package alloy.compat120.registry;
+
+import java.util.ArrayList;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Set;
+import net.fabricmc.fabric.api.event.registry.DynamicRegistries;
+import net.minecraft.resources.RegistryDataLoader;
+import net.minecraft.resources.ResourceKey;
+import net.minecraft.server.WorldLoader;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.ModifyArg;
+
+/**
+ * 1.21.4 to 1.21.11 copy (bridge/src54 overlay): replaces fabric-registry-sync-v0 SaveLoadingMixin. Since 1.21.2
+ * {@code WorldLoader.load} has no loadAndReplaceLayer call: it calls {@code RegistryDataLoader.load(ResourceManager, List, List)}
+ * with {@code RegistryDataLoader.WORLDGEN_REGISTRIES} (first call) and then with DIMENSION_REGISTRIES. Fabric's mixin swaps
+ * the world-gen list for {@code DynamicRegistries.getDynamicRegistries()}, a copy made when that class loaded. Forge adds its
+ * own and its mods' data pack registries (forge:biome_modifier, ...) to the vanilla list later, so the copy can miss them.
+ * Here the list is the one Forge left in the call, with Fabric's extra registries added after it.
+ */
+@Mixin(value = WorldLoader.class, remap = false)
+public abstract class WorldLoaderCompat120 {
+    @ModifyArg(method = "load", allow = 1, index = 2, at = @At(value = "INVOKE", ordinal = 0, remap = false,
+            target = "Lnet/minecraft/resources/RegistryDataLoader;load(Lnet/minecraft/server/packs/resources/ResourceManager;Ljava/util/List;Ljava/util/List;)Lnet/minecraft/core/RegistryAccess$Frozen;"),
+            remap = false)
+    private static List<RegistryDataLoader.RegistryData<?>> alloy$forgeAndFabricRegistries(List<RegistryDataLoader.RegistryData<?>> forge) {
+        List<RegistryDataLoader.RegistryData<?>> out = new ArrayList<>(forge);
+        Set<ResourceKey<?>> keys = new HashSet<>();
+        for (var d : forge) keys.add(d.key());
+        for (var d : DynamicRegistries.getDynamicRegistries()) if (keys.add(d.key())) out.add(d);
+        return out;
+    }
+}

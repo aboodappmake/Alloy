@@ -1,0 +1,17 @@
+{
+ "schemaVersion": 1,
+ "id": "alloyloader",
+ "version": "0.5.4-beta",
+ "name": "Alloy",
+ "description": "Runs Forge mods and Fabric mods in one game: starts Forge's own mod loader inside Fabric Loader.",
+ "license": "Apache-2.0",
+ "environment": "*",
+ "entrypoints": {
+  "preLaunch": [
+   "alloy.Bridge"
+  ]
+ },
+ "depends": {
+  "fabricloader": ">=0.20"
+ }
+}

@@ -1,0 +1,45 @@
+# compat120 sources built for 1.21.1 (launch120.py, profile tools.compatLists.enable).
+# Forge reads sprites[2] (overlay) in its tesselate, Fabric's fluid handler gives two: chunk builds crashed near water
+fluid/LiquidBlockRendererCompat120
+# Creative tabs: Forge is the only pager, Fabric's page mirrors it (Fabric's screen injectors stripped in compat_replaces)
+gui/CreativeTabPagesCompat120
+# Fabric color providers: fabric-rendering-v1 BlockColorsMixin/ItemColorsMixin are stripped, these call initialize and get
+color/BlockColorsCompat120
+color/ItemColorsCompat120
+# Fabric mods register blocks and items in onInitialize; Forge 52 has locked the NamespacedWrapper by then. The src52 overlay
+# has the Forge 52 register(ResourceKey, T, RegistrationInfo) shape. (BlockItemRegisterCompat120 stays out: Forge 52 BlockItem
+# keeps the Block in a plain field, getBlockRaw is gone.)
+registry/NamespacedWrapperLateRegister120
+# Fabric particle factories: raw-id view of Forge's provider map for Fabric's ParticleManagerAccessor (retargeted in compat_replaces)
+particle/ParticleEngineCompat120
+particle/ParticleIdMap
+# Fabric biome modifications: Forge 52 made ChunkGenerator.featuresPerStep a ClearableLazy, Fabric's finalizeWorldGen wrote a
+# Supplier (NoSuchFieldError when the integrated server starts). src52 overlay only (compatExtraMixins in versions/1.21.1.json)
+biome/BiomeModificationFeaturesCompat120
+# Forge 52 ClearableLazy race: featuresPerStep read as null on parallel world generation threads (C2ME); src52 overlay only
+biome/FeaturesPerStepRace121
+# Fabric getAppearance (FabricBlock and FabricBlockState) next to Forge's: "Conflicting default methods" without it
+block/BlockAppearanceCompat120
+# plain ports, targets unchanged on Forge 52; Fabric halves in compat_replaces
+interaction/ServerPlayerGameModeCompat120
+entityevents/SleepCompat120
+item/ItemCompat120
+itemchunk/LevelChunkLifecycleCompat120
+registry/WorldLoaderCompat120
+client49/QuickPlayForgeBus49
+mpforge/ForgeClientNoFabricSync49
+# Fabric mods that build mob attributes in onInitialize: Forge 52 createLivingAttributes reads forge:swim_speed before Forge
+# registered it (src52 overlay: skip the unregistered Forge attributes, add them when Forge builds its attribute table)
+entity/EarlyAttributesCompat120
+# Fabric screen events (keys, mouse, render, tick), enchanting check, continue breaking, client UseEntityCallback on Forge 52's
+# call sites (src52 overlay only)
+client52/FabricClientHooks52
+# Fabric biome weather setters on Forge's biome info (IllegalAccessError at server start without it); null sleeping direction
+biome/BiomeWeatherCompat120
+entityevents/SleepDirectionCheck120
+# loot table ids for Forge's global loot modifiers when Fabric loot v3 rebuilt the table (src52: ReloadableServerRegistries)
+loot/LootIdCompat120
+# duplicate key binding names (keybind bridge plan section 4) and late Fabric keys with -Dalloy.fabricAfterForge (section 5)
+input/KeyMappingAllAccess120
+input/OptionsKeyDedupe120
+input/LateFabricKeys120

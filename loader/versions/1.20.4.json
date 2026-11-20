@@ -1,0 +1,534 @@
+{
+ "schema": 1,
+ "id": "1.20.4",
+ "status": "client works (merged from port-1.20.4); in the installer since branch inst1204. Read by launch120.py, build_ui47.py, remap_tool.py (ALLOY_MC=1.20.4), port_check.py and build_installer.py",
+ "source": "Forge 49.2.13 installer version.json / install_profile.json (run/port1204_research/inst), Mojang 1.20.4 version json, maven.fabricmc.net",
+ "minecraft": "1.20.4",
+ "forge": {
+  "version": "49.2.13",
+  "recommended": "49.2.13",
+  "full": "1.20.4-49.2.13",
+  "installer": "net.minecraftforge:forge:1.20.4-49.2.13:installer",
+  "fmlFamily": "fml49",
+  "mainClass": "net.minecraftforge.bootstrap.ForgeBootstrap",
+  "launchTarget": {
+   "client": "forge_client",
+   "server": "forge_server"
+  },
+  "launchArgs": [],
+  "launchHandler": {
+   "client": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Client",
+   "server": "net.minecraftforge.fml.loading.targets.ForgeProdLaunchHandler$Server"
+  },
+  "runtimeNames": "srg (MCP 20231207.112700)",
+  "coremods": "javascript (coremods 5.2.6 on nashorn 15.4; Forge ships 4: field_to_method, field_to_instanceof, add_bouncer_method, method_redirector). Applied at runtime like on 47 (Bridge.coreMods47)",
+  "libraries": [
+   "net.minecraftforge:JarJarFileSystems:0.3.26",
+   "com.google.guava:guava:32.1.2-jre",
+   "com.google.guava:failureaccess:1.0.1",
+   "net.minecraftforge:securemodules:2.2.21",
+   "net.minecraftforge:unsafe:0.9.2",
+   "org.ow2.asm:asm:9.9.1",
+   "org.ow2.asm:asm-tree:9.9.1",
+   "org.ow2.asm:asm-util:9.9.1",
+   "org.ow2.asm:asm-commons:9.9.1",
+   "org.ow2.asm:asm-analysis:9.9.1",
+   "net.minecraftforge:bootstrap:2.1.8",
+   "net.minecraftforge:bootstrap-api:2.1.8",
+   "net.minecraftforge:accesstransformers:8.1.1",
+   "org.antlr:antlr4-runtime:4.9.1",
+   "net.minecraftforge:eventbus:6.2.33",
+   "net.jodah:typetools:0.6.3",
+   "net.minecraftforge:forgespi:7.1.3",
+   "net.minecraftforge:coremods:5.2.6",
+   "org.openjdk.nashorn:nashorn-core:15.4",
+   "net.minecraftforge:modlauncher:10.1.2",
+   "net.minecraftforge:mergetool-api:1.0",
+   "com.electronwill.night-config:toml:3.6.7",
+   "com.electronwill.night-config:core:3.6.7",
+   "org.apache.maven:maven-artifact:3.8.8",
+   "net.minecrell:terminalconsoleappender:1.2.0",
+   "org.jline:jline-reader:3.25.1",
+   "org.jline:jline-terminal:3.25.1",
+   "org.jline:jline-terminal-jna:3.25.1",
+   "org.spongepowered:mixin:0.8.5",
+   "net.minecraftforge:JarJarSelector:0.3.26",
+   "net.minecraftforge:JarJarMetadata:0.3.26",
+   "net.minecraftforge:fmlcore:1.20.4-49.2.13",
+   "net.minecraftforge:fmlloader:1.20.4-49.2.13",
+   "net.minecraftforge:fmlearlydisplay:1.20.4-49.2.13",
+   "net.minecraftforge:javafmllanguage:1.20.4-49.2.13",
+   "net.minecraftforge:lowcodelanguage:1.20.4-49.2.13",
+   "net.minecraftforge:mclanguage:1.20.4-49.2.13"
+  ],
+  "mcp": "20231207.112700"
+ },
+ "fabric": {
+  "loader": "0.20.1",
+  "api": "0.97.3+1.20.4",
+  "mixin": "0.17.5+mixin.0.8.7",
+  "mixinExtras": "0.5.5 (bundled in Fabric Loader 0.20.1)",
+  "runtimeNames": "intermediary (Alloy plan: remap to Mojang ahead of time)",
+  "apiPrefit": "fabric-api-0.97.3+1.20.4-alloy.jar",
+  "apiPrefitNote": "made by launch120.py mods (installer/build120.py --mc 1.20.4), branded by make_prefit.py into installer/res/prefit"
+ },
+ "java": {
+  "run": 21,
+  "release": 17,
+  "asm": "9.10.1",
+  "asmNote": "9.10.1 for Alloy's tools (Forge 49 ships 9.9.1)",
+  "note": "Minecraft 1.20.4 runs on 17+; Alloy runs it on 21. Bridge and tools compile with --release 17."
+ },
+ "mappings": {
+  "runtime": "mojang (the Mojang pivot, study 2.5)",
+  "forge": "srg",
+  "fabric": "intermediary",
+  "mojang": "piston-meta 1.20.4 version json, downloads.client_mappings / server_mappings",
+  "srg": "de.oceanlabs.mcp:mcp_config:1.20.4-20231207.112700@zip",
+  "intermediary": "net.fabricmc:intermediary:1.20.4:v2"
+ },
+ "maven": {
+  "mojangManifest": "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json",
+  "forge": "https://maven.minecraftforge.net",
+  "fabric": "https://maven.fabricmc.net",
+  "central": "https://repo1.maven.org/maven2",
+  "coordinates": {
+   "forgeInstaller": "net.minecraftforge:forge:1.20.1-47.4.29:installer",
+   "fabricLoader": "net.fabricmc:fabric-loader:0.20.1",
+   "fabricApi": "net.fabricmc.fabric-api:fabric-api:0.92.12+1.20.1",
+   "mixin": "net.fabricmc:sponge-mixin:0.17.5+mixin.0.8.7",
+   "mcpConfig": "de.oceanlabs.mcp:mcp_config:1.20.1-20230612.114412@zip",
+   "intermediary": "net.fabricmc:intermediary:1.20.1:v2"
+  }
+ },
+ "prepfml": {
+  "note": "fml49 rule set = fml47 rules plus the getInfo(Class) body rule (tools/PrepFml.java, -Dalloy.fml=fml49). jar expect = PrepFml's own log on Forge 49.2.13 (launch120.py fml, 2026-11-12).",
+  "jars": [
+   {
+    "id": "fmlcore",
+    "coord": "net.minecraftforge:fmlcore:1.20.4-49.2.13",
+    "expect": {
+     "calls": 2,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "fmlloader",
+    "coord": "net.minecraftforge:fmlloader:1.20.4-49.2.13",
+    "expect": {
+     "calls": 10,
+     "bodies": 4
+    }
+   },
+   {
+    "id": "forge-universal",
+    "coord": "net.minecraftforge:forge:1.20.4-49.2.13:universal",
+    "expect": {
+     "calls": 1,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "javafmllanguage",
+    "coord": "net.minecraftforge:javafmllanguage:1.20.4-49.2.13",
+    "expect": {
+     "calls": 2,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "lowcodelanguage",
+    "coord": "net.minecraftforge:lowcodelanguage:1.20.4-49.2.13",
+    "expect": {
+     "calls": 0,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "mclanguage",
+    "coord": "net.minecraftforge:mclanguage:1.20.4-49.2.13",
+    "expect": {
+     "calls": 2,
+     "bodies": 0
+    }
+   },
+   {
+    "id": "modlauncher",
+    "coord": "net.minecraftforge:modlauncher:10.1.2",
+    "expect": {
+     "calls": 7,
+     "bodies": 4
+    }
+   }
+  ],
+  "rules": [
+   {
+    "id": "layers",
+    "kind": "body",
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "method": "findLayerManager",
+    "desc": "()Ljava/util/Optional;",
+    "action": "return BridgeHooks.layers()",
+    "hook": {
+     "name": "layers",
+     "desc": "()Ljava/util/Optional;"
+    },
+    "expect": {}
+   },
+   {
+    "id": "nameMapping",
+    "kind": "body",
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "method": "findNameMapping",
+    "descSuffix": ")Ljava/util/Optional;",
+    "action": "return BridgeHooks.nameMapping(name): a srg -> Mojang BiFunction (study 2.5)",
+    "hook": {
+     "name": "nameMapping",
+     "planned": true
+    },
+    "expect": {}
+   },
+   {
+    "id": "noServices",
+    "kind": "body",
+    "owner": "cpw/mods/modlauncher/Launcher",
+    "method": [
+     "findLaunchPlugin",
+     "findLaunchHandler"
+    ],
+    "descSuffix": ")Ljava/util/Optional;",
+    "action": "return Optional.empty()",
+    "expect": {}
+   },
+   {
+    "id": "version47_implVersion",
+    "kind": "body",
+    "owner": "net/minecraftforge/fml/loading/JarVersionLookupHandler",
+    "method": "getImplementationVersion",
+    "descPrefix": "(Ljava/lang/Class;)",
+    "action": "return BridgeHooks.implVersion(clazz): per-package manifest attribute (47 has no getInfo/Info/Version)",
+    "hook": {
+     "name": "implVersion",
+     "planned": true
+    },
+    "expect": {}
+   },
+   {
+    "id": "version47_implTitle",
+    "kind": "body",
+    "owner": "net/minecraftforge/fml/loading/JarVersionLookupHandler",
+    "method": "getImplementationTitle",
+    "descPrefix": "(Ljava/lang/Class;)",
+    "action": "return BridgeHooks.implTitle(clazz): per-package manifest attribute (47 has no getInfo/Info/Version)",
+    "hook": {
+     "name": "implTitle",
+     "planned": true
+    },
+    "expect": {}
+   },
+   {
+    "id": "version47_specVersion",
+    "kind": "body",
+    "owner": "net/minecraftforge/fml/loading/JarVersionLookupHandler",
+    "method": "getSpecificationVersion",
+    "descPrefix": "(Ljava/lang/Class;)",
+    "action": "return BridgeHooks.specVersion(clazz): per-package manifest attribute (47 has no getInfo/Info/Version)",
+    "hook": {
+     "name": "specVersion",
+     "planned": true
+    },
+    "expect": {}
+   },
+   {
+    "id": "serviceLoad",
+    "kind": "call",
+    "call": {
+     "owner": "java/util/ServiceLoader",
+     "name": "load",
+     "desc": "(Ljava/lang/ModuleLayer;Ljava/lang/Class;)Ljava/util/ServiceLoader;"
+    },
+    "action": "BridgeHooks.load",
+    "hook": {
+     "name": "load"
+    },
+    "expect": {}
+   },
+   {
+    "id": "findModule",
+    "kind": "call",
+    "call": {
+     "owner": "java/lang/ModuleLayer",
+     "name": "findModule"
+    },
+    "action": "BridgeHooks.findModule",
+    "hook": {
+     "name": "findModule",
+     "desc": "(Ljava/lang/ModuleLayer;Ljava/lang/String;)Ljava/util/Optional;"
+    },
+    "expect": {}
+   },
+   {
+    "id": "forNameModule",
+    "kind": "call",
+    "call": {
+     "owner": "java/lang/Class",
+     "name": "forName",
+     "desc": "(Ljava/lang/Module;Ljava/lang/String;)Ljava/lang/Class;"
+    },
+    "action": "BridgeHooks.forName",
+    "hook": {
+     "name": "forName"
+    },
+    "expect": {}
+   },
+   {
+    "id": "forgeModsDir",
+    "kind": "call",
+    "where": {
+     "class": "net/minecraftforge/fml/loading/moddiscovery/ModsFolderLocator",
+     "method": "<init>",
+     "desc": "()V"
+    },
+    "call": {
+     "owner": "net/minecraftforge/fml/loading/FMLPaths",
+     "name": "get"
+    },
+    "action": "BridgeHooks.forgeModsDir",
+    "hook": {
+     "name": "forgeModsDir",
+     "desc": "(Lnet/minecraftforge/fml/loading/FMLPaths;)Ljava/nio/file/Path;"
+    },
+    "expect": {}
+   },
+   {
+    "id": "scanDependencies",
+    "kind": "call",
+    "where": {
+     "class": "net/minecraftforge/fml/loading/moddiscovery/ModDiscoverer"
+    },
+    "call": {
+     "owner": "net/minecraftforge/forgespi/locating/IDependencyLocator",
+     "name": "scanMods"
+    },
+    "action": "BridgeHooks.scanDependencies",
+    "hook": {
+     "name": "scanDependencies"
+    },
+    "expect": {}
+   },
+   {
+    "id": "versionInfo",
+    "kind": "body",
+    "owner": "net/minecraftforge/fml/loading/JarVersionLookupHandler",
+    "method": "getInfo",
+    "descPrefix": "(Ljava/lang/Class;)",
+    "action": "return BridgeHooks.versionInfo(clazz)",
+    "hook": {
+     "name": "versionInfo"
+    },
+    "expect": {}
+   }
+  ],
+  "dropped": [
+   {
+    "id": "noMixinExtras",
+    "why": "JarInJarDependencyLocator.anyMixinsLoaded does not exist in 49"
+   },
+   {
+    "id": "openModules",
+    "why": "FMLModContainer.openModules does not exist in 49"
+   },
+   {
+    "id": "noAccessTransformer",
+    "why": "kept as on 47: the bridge gives FML Forge's AccessTransformerService (runtime ATs)"
+   }
+  ]
+ },
+ "bridge": {
+  "note": "API shape changes that are code, not data (study 5.1 FmlAdapter): launch handler class name, CommonLaunchHandler.getMinecraftPaths returns LocatedPaths, LoadingModList instance methods, FMLLoader.naming = \"mcp\", eventbus 6 instead of 7, Forge 47 networking (SimpleChannel, no ChannelListManager/NetworkContext/ChannelBuilder/CustomPayloadEvent). The reflection list of today's code is in the base profile."
+ },
+ "prepgame": {
+  "note": "UNKNOWN: anchors must be re-derived for Forge 47 (662 patches vs 628) once the game jar is in Mojang names: run the auto anchor engine, then hand-fix. port_check runs today's 26.1.2 anchors against 1.20.1 to show which ones still have a target.",
+  "anchors": [],
+  "autoKeep": [],
+  "transformers": "js-coremods (no forge-transformers on 47)"
+ },
+ "compat": {
+  "note": "These modules need re-targeting; mpforge, recipesync, registry (DataPackRegistriesFabricMirror) and itemchunk (EnchantmentHelper*) need a rewrite or are not needed on 1.20.1. sodiumforge: UNKNOWN (depends on Sodium for 1.20.1 / Embeddium).",
+  "enabled": [
+   "entityevents",
+   "interaction",
+   "attributes",
+   "biome",
+   "conditions"
+  ],
+  "rewriteOrDrop": [
+   "mpforge",
+   "recipesync",
+   "registry",
+   "itemchunk"
+  ],
+  "unknown": [
+   "sodiumforge",
+   "architectury"
+  ],
+  "replaces": "UNKNOWN: compat_replaces-0.92.txt (regenerate; Fabric API 0.92 mixin class names are Yarn style)",
+  "prefit": "UNKNOWN: prefit/fabric-api-0.92.12+1.20.1-alloy.jar (regenerate)"
+ },
+ "versionStrings": {
+  "values": {
+   "minecraft": "1.20.4",
+   "forge": "49.2.13",
+   "fabricApi": "0.97.3",
+   "modlauncher": "10.1.2",
+   "asm": "9.10.1",
+   "mixinExtras": "0.5.5"
+  },
+  "note": "asm and mixinExtras kept the same as 26.1.2 for now (UNKNOWN), so the checker does not flag them."
+ },
+ "local": {
+  "libRoots": [
+   "${root}/run/port1204_research/client/libraries",
+   "${root}/run/port1204_research/libs",
+   "${root}/run/port1204_research/dl",
+   "${root}/run/port1202_research/jars",
+   "${root}/run/port1204_research/inst/maven"
+  ],
+  "vanilla": {
+   "jars": [
+    "${root}/run/port1204_research/dl/client-1.20.4.jar"
+   ],
+   "names": "obf"
+  },
+  "game": {
+   "jars": [
+    "${root}/run/port1204_research/client/libraries/net/minecraftforge/forge/1.20.4-49.2.13/forge-1.20.4-49.2.13-client.jar",
+    "${root}/run/port1204_research/client/libraries/net/minecraft/client/1.20.4-20231207.112700/client-1.20.4-20231207.112700-srg.jar"
+   ],
+   "names": "srg"
+  },
+  "forge": {
+   "jars": [
+    "net.minecraftforge:forge:1.20.4-49.2.13:universal"
+   ],
+   "names": "srg"
+  },
+  "fabricApi": {
+   "jar": "${root}/run/port1204_research/dl/fabric-api-0.97.3+1.20.4.jar",
+   "names": "intermediary"
+  },
+  "fabricLoader": "${root}/run/srv26/libraries/net/fabricmc/fabric-loader/0.20.1/fabric-loader-0.20.1.jar",
+  "bridgeJar": "${root}/run/port1204/port1204/bridge/alloy-bridge.jar",
+  "mappings": {
+   "mojang": "${root}/run/port1204_research/dl/client-1.20.4.txt",
+   "srg": "${root}/run/port1204_research/libs/mcp_config-1.20.4-20231207.112700.zip",
+   "intermediary": "${root}/run/port1204_research/dl/intermediary-1.20.4-v2.jar"
+  }
+ },
+ "tools": {
+  "note": "Parameters of the 1.20.x tools (launch120.py, build_ui47.py, remap_tool.py). Select with env ALLOY_MC=1.20.4. 1.20.1 has no tools block: the tools keep their built-in 1.20.1 values.",
+  "mc": "1.20.4",
+  "forge": "49.2.13",
+  "mcp": "20231207.112700",
+  "group": "net.minecraftforge",
+  "fmlFamily": "fml49",
+  "buildTags": [
+   "fml49",
+   "versioninfo",
+   "serviceprovider"
+  ],
+  "work": "run/port1204/port1204",
+  "fmlJars": [
+   "net/minecraftforge/fmlcore/1.20.4-49.2.13/fmlcore-1.20.4-49.2.13.jar",
+   "net/minecraftforge/fmlloader/1.20.4-49.2.13/fmlloader-1.20.4-49.2.13.jar",
+   "net/minecraftforge/forge/1.20.4-49.2.13/forge-1.20.4-49.2.13-universal.jar",
+   "net/minecraftforge/javafmllanguage/1.20.4-49.2.13/javafmllanguage-1.20.4-49.2.13.jar",
+   "net/minecraftforge/lowcodelanguage/1.20.4-49.2.13/lowcodelanguage-1.20.4-49.2.13.jar",
+   "net/minecraftforge/mclanguage/1.20.4-49.2.13/mclanguage-1.20.4-49.2.13.jar",
+   "net/minecraftforge/modlauncher/10.1.2/modlauncher-10.1.2.jar",
+   "net/minecraftforge/eventbus/6.2.33/eventbus-6.2.33.jar",
+   "net/minecraftforge/coremods/5.2.6/coremods-5.2.6.jar",
+   "net/minecraftforge/accesstransformers/8.1.1/accesstransformers-8.1.1.jar"
+  ],
+  "forgeSkip": [
+   "org.spongepowered:mixin",
+   "org.ow2.asm:",
+   "net.minecraftforge:bootstrap:",
+   "net.minecraftforge:bootstrap-api:",
+   "net.minecraftforge:forge:1.20.4-49.2.13:client"
+  ],
+  "extraForgeLibs": [],
+  "systemLibraries": [
+   "securemodules"
+  ],
+  "res": "res49",
+  "srcOverlays": [
+   "src49",
+   "src47"
+  ],
+  "compatLists": {
+   "replaces": "compat_replaces.1.20.4.txt",
+   "strip": "prefit_strip.1.20.4.txt",
+   "aw": "aw_edits.1.20.4.txt",
+   "enable": "compat_enable.1.20.4.txt"
+  },
+  "mappingUrls": {
+   "intermediary": "https://maven.fabricmc.net/net/fabricmc/intermediary/1.20.4/intermediary-1.20.4-v2.jar",
+   "mcp": "https://maven.minecraftforge.net/de/oceanlabs/mcp/mcp_config/1.20.4-20231207.112700/mcp_config-1.20.4-20231207.112700.zip"
+  },
+  "remapWork": "run/port1204/name-translator",
+  "srcShared": [
+   "api/impl/ApiNetwork",
+   "api/impl/ApiNetworkClient"
+  ],
+  "compatExtraMixins": {
+   "mixins": [
+    "mpforge.ForgeClientNoFabricSync49",
+    "net49.ForgePayloadsStayForge49$ToClient",
+    "net49.ForgePayloadsStayForge49$ToServer"
+   ],
+   "client": [
+    "client49.QuickPlayForgeBus49",
+    "net49.FabricLoginQuery49"
+   ]
+  },
+  "net120": false,
+  "net120Note": "compat120/net is for Forge 47's login handshake; Forge 49 uses net49 (compatExtraMixins) instead"
+ },
+ "tested": {
+  "2026-11-12 client, world created": {
+   "forge": [
+    "jei 17.3.1.5",
+    "jade 13.2.1",
+    "appleskin 2.5.1+mc1.20.2",
+    "clumps 15.0.0.2",
+    "mousetweaks 2.26",
+    "waystones 16.0.5",
+    "balm 9.0.9"
+   ],
+   "fabric": [
+    "fabric-api 0.97.3+1.20.4",
+    "modmenu 9.2.0",
+    "chat_heads 0.15.6",
+    "lambdynamiclights 2.3.4+1.20.4"
+   ],
+   "notes": "alloy-report STATUS: OK; conflict audit 0 real failures; Balm enum list config values fall back to default (ClassCastException in config load, logged)"
+  },
+  "2026-11-13 LAN, two clients (test_lan1204.py --tag fix2)": {
+   "result": "host opened to LAN, second client joined through Forge's and Fabric's configuration tasks, stayed 45 s, left cleanly",
+   "fabricSendable": "client and host both list alloy:api, appleskin:sync, forge:handshake, forge:login, forge:tier_sorting, jei:channel, waystones:network",
+   "notChecked": "Forge's remote channel list (the helper mod is Fabric code and Alloy isolation hides NetworkContext from it)"
+  },
+  "2026-11-13 rendering": {
+   "sodium": "0.5.8+mc1.20.4: world renders, 8 compat mixins",
+   "iris": "1.7.2+mc1.20.4 with Complementary Reimagined r5.9.3: shaded world, 9 compat mixins",
+   "indium": "1.0.31+mc1.20.4 (with Sodium and Iris, shaders off): IndiumRenderer active, 10 compat mixins",
+   "audit": "no Sodium, Iris, Indium or compat failures (refmap rows only)"
+  },
+  "2026-11-13 LAN after the second merge (test_lan1204.py --variant fixed --tag r3)": {
+   "pass": true,
+   "checks": "joined, stayed_and_left, chat both ways, block place server->client and break client->server, no kick",
+   "forgeRemoteChannels": "both sides MODDED; host sees alloy:api, appleskin:sync, c:register, c:version, fabric:registry/sync/direct, forge:handshake, forge:login, forge:tier_sorting, jei:channel, waystones:network and others"
+  }
+ }
+}

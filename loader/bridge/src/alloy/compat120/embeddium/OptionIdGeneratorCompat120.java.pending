@@ -1,0 +1,26 @@
+package alloy.compat120.embeddium;
+
+import alloy.compat120support.embeddium.EmbeddiumFabricPages;
+import org.spongepowered.asm.mixin.Mixin;
+import org.spongepowered.asm.mixin.Pseudo;
+import org.spongepowered.asm.mixin.injection.At;
+import org.spongepowered.asm.mixin.injection.Inject;
+import org.spongepowered.asm.mixin.injection.callback.CallbackInfoReturnable;
+
+/**
+ * Embeddium 0.3 guesses the mod of an option page made with the old two-argument OptionPage constructor from the stack:
+ * it looks the caller's code source up in Forge's ModList. Fabric add-ons (Sodium Extra, Reese's) are not in it and their
+ * classes are hidden from Embeddium's loader, so every Fabric page became "embeddium:empty" and landed under the
+ * Embeddium tab. When Embeddium finds nothing, this asks Fabric Loader which mod owns the calling class.
+ * Off with -Dalloy.embeddium.fabricPages=false.
+ */
+@Pseudo
+@Mixin(targets = "org.embeddedt.embeddium.client.gui.options.OptionIdGenerator", remap = false)
+public abstract class OptionIdGeneratorCompat120 {
+    @Inject(method = "generateId", at = @At("RETURN"), cancellable = true, remap = false, require = 0)
+    private static void alloy$fabricOwner(String path, CallbackInfoReturnable<Object> cir) {
+        if (cir.getReturnValue() != null) return;
+        Object id = EmbeddiumFabricPages.guessId(path);
+        if (id != null) cir.setReturnValue(id);
+    }
+}
